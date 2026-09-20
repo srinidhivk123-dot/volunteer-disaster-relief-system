@@ -1,9 +1,15 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from app.core.database import SessionLocal
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import (
+    hash_password,
+    verify_password,
+    create_access_token
+)
+from app.core.dependencies import get_current_user
 from app.models.user import User
+
 
 router = APIRouter(
     prefix="/auth",
@@ -97,3 +103,12 @@ def login(user: LoginRequest):
 
     finally:
         db.close()
+
+
+@router.get("/me")
+def get_me(current_user=Depends(get_current_user)):
+
+    return {
+        "message": "You are authenticated",
+        "user": current_user
+    }

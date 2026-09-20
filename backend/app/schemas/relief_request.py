@@ -2,7 +2,6 @@ from pydantic import BaseModel
 
 
 class ReliefRequestCreate(BaseModel):
-    victim_id: int
     disaster_id: int
     request_type: str
     description: str
