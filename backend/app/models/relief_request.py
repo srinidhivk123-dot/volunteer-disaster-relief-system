@@ -11,4 +11,6 @@ class ReliefRequest(Base):
     request_type = Column(String(100), nullable=False)
     description = Column(Text, nullable=False)
     location = Column(String(150), nullable=False)
+    priority = Column(String(20), nullable=False, default="MEDIUM")
+    request_source = Column(String(30), nullable=False, default="victim")
     status = Column(String(30), nullable=False, default="pending")
