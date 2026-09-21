@@ -5,6 +5,7 @@ from app.core.database import Base, engine
 from app import models
 from app.api.auth import router as auth_router
 from app.api.relief_requests import router as relief_request_router
+from app.api.assignments import router as assignment_router
 
 
 Base.metadata.create_all(bind=engine)
@@ -13,7 +14,6 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 
-# Allow the React frontend to communicate with FastAPI
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -26,11 +26,9 @@ app.add_middleware(
 )
 
 
-# Authentication routes
 app.include_router(auth_router)
-
-# Relief request routes
 app.include_router(relief_request_router)
+app.include_router(assignment_router)
 
 
 @app.get("/")
