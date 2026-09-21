@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
@@ -9,7 +9,8 @@ from app.schemas.relief_request import (
 )
 from app.services.relief_request_service import (
     create_relief_request,
-    get_my_relief_requests
+    get_my_relief_requests,
+    get_relief_request_by_id
 )
 
 
@@ -56,3 +57,27 @@ def get_my_requests(
         db,
         current_user
     )
+
+
+@router.get(
+    "/{request_id}",
+    response_model=ReliefRequestResponse
+)
+def get_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    request = get_relief_request_by_id(
+        db,
+        request_id,
+        current_user
+    )
+
+    if request is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Relief request not found"
+        )
+
+    return request

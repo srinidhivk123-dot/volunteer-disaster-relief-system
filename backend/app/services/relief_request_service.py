@@ -40,3 +40,20 @@ def get_my_relief_requests(
     )
 
     return requests
+
+
+def get_relief_request_by_id(
+    db: Session,
+    request_id: int,
+    current_user
+):
+    request = (
+        db.query(ReliefRequest)
+        .filter(
+            ReliefRequest.id == request_id,
+            ReliefRequest.victim_id == current_user["user_id"]
+        )
+        .first()
+    )
+
+    return request
