@@ -5,12 +5,14 @@ from app.core.database import SessionLocal
 from app.core.dependencies import get_current_user
 from app.schemas.assignment import (
     AssignmentCreate,
-    AssignmentResponse
+    AssignmentResponse,
+    AssignmentStatusUpdate
 )
 from app.services.assignment_service import (
     create_assignment,
     get_assignment_by_id,
-    get_all_assignments
+    get_all_assignments,
+    update_assignment_status
 )
 
 
@@ -43,6 +45,7 @@ def create_new_assignment(
             db,
             assignment_data
         )
+
     except ValueError as error:
         raise HTTPException(
             status_code=400,
@@ -74,6 +77,38 @@ def get_assignment(
         db,
         assignment_id
     )
+
+    if assignment is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Assignment not found"
+        )
+
+    return assignment
+
+
+@router.patch(
+    "/{assignment_id}/status",
+    response_model=AssignmentResponse
+)
+def update_assignment_status_endpoint(
+    assignment_id: int,
+    status_data: AssignmentStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    try:
+        assignment = update_assignment_status(
+            db,
+            assignment_id,
+            status_data
+        )
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
 
     if assignment is None:
         raise HTTPException(

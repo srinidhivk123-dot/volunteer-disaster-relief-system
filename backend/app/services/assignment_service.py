@@ -3,7 +3,10 @@ from sqlalchemy.orm import Session
 from app.models.assignment import Assignment
 from app.models.relief_request import ReliefRequest
 from app.models.volunteer import Volunteer
-from app.schemas.assignment import AssignmentCreate
+from app.schemas.assignment import (
+    AssignmentCreate,
+    AssignmentStatusUpdate
+)
 
 
 def create_assignment(
@@ -82,3 +85,38 @@ def get_all_assignments(
         .order_by(Assignment.id.desc())
         .all()
     )
+
+
+def update_assignment_status(
+    db: Session,
+    assignment_id: int,
+    status_data: AssignmentStatusUpdate
+):
+    assignment = (
+        db.query(Assignment)
+        .filter(
+            Assignment.id == assignment_id
+        )
+        .first()
+    )
+
+    if assignment is None:
+        return None
+
+    allowed_statuses = {
+        "assigned",
+        "in_progress",
+        "completed"
+    }
+
+    if status_data.status not in allowed_statuses:
+        raise ValueError(
+            "Invalid assignment status"
+        )
+
+    assignment.status = status_data.status
+
+    db.commit()
+    db.refresh(assignment)
+
+    return assignment
