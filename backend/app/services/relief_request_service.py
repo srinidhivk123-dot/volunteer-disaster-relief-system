@@ -1,7 +1,10 @@
 from sqlalchemy.orm import Session
 
 from app.models.relief_request import ReliefRequest
-from app.schemas.relief_request import ReliefRequestCreate
+from app.schemas.relief_request import (
+    ReliefRequestCreate,
+    ReliefRequestStatusUpdate
+)
 
 
 def create_relief_request(
@@ -55,5 +58,41 @@ def get_relief_request_by_id(
         )
         .first()
     )
+
+    return request
+
+
+def update_relief_request_status(
+    db: Session,
+    request_id: int,
+    status_data: ReliefRequestStatusUpdate,
+    current_user
+):
+    request = (
+        db.query(ReliefRequest)
+        .filter(
+            ReliefRequest.id == request_id,
+            ReliefRequest.victim_id == current_user["user_id"]
+        )
+        .first()
+    )
+
+    if request is None:
+        return None
+
+    allowed_statuses = {
+        "pending",
+        "assigned",
+        "in_progress",
+        "completed"
+    }
+
+    if status_data.status not in allowed_statuses:
+        raise ValueError("Invalid relief request status")
+
+    request.status = status_data.status
+
+    db.commit()
+    db.refresh(request)
 
     return request

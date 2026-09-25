@@ -10,6 +10,10 @@ class ReliefRequestCreate(BaseModel):
     request_source: str
 
 
+class ReliefRequestStatusUpdate(BaseModel):
+    status: str
+
+
 class ReliefRequestResponse(BaseModel):
     id: int
     victim_id: int
