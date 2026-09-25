@@ -3,9 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import Base, engine
 from app import models
+
 from app.api.auth import router as auth_router
 from app.api.relief_requests import router as relief_request_router
 from app.api.assignments import router as assignment_router
+from app.api.volunteers import router as volunteer_router
 
 
 Base.metadata.create_all(bind=engine)
@@ -29,6 +31,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(relief_request_router)
 app.include_router(assignment_router)
+app.include_router(volunteer_router)
 
 
 @app.get("/")
