@@ -8,7 +8,7 @@ from app.api.auth import router as auth_router
 from app.api.relief_requests import router as relief_request_router
 from app.api.assignments import router as assignment_router
 from app.api.volunteers import router as volunteer_router
-
+from app.api.disasters import router as disaster_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -32,7 +32,7 @@ app.include_router(auth_router)
 app.include_router(relief_request_router)
 app.include_router(assignment_router)
 app.include_router(volunteer_router)
-
+app.include_router(disaster_router)
 
 @app.get("/")
 def root():
