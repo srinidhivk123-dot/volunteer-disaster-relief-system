@@ -2,14 +2,19 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
-from app.core.dependencies import get_current_user
+from app.core.dependencies import (
+    get_current_user,
+    require_role
+)
 from app.schemas.relief_request import (
     ReliefRequestCreate,
+    AssistedReliefRequestCreate,
     ReliefRequestResponse,
     ReliefRequestStatusUpdate
 )
 from app.services.relief_request_service import (
     create_relief_request,
+    create_assisted_relief_request,
     get_my_relief_requests,
     get_relief_request_by_id,
     update_relief_request_status
@@ -45,6 +50,27 @@ def create_request(
         request_data,
         current_user
     )
+
+
+@router.post(
+    "/assisted",
+    response_model=ReliefRequestResponse
+)
+def create_assisted_request(
+    request_data: AssistedReliefRequestCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("volunteer"))
+):
+    try:
+        return create_assisted_relief_request(
+            db,
+            request_data
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
 
 
 @router.get(

@@ -8,7 +8,13 @@ class ReliefRequestCreate(BaseModel):
     location: str
     priority: str
     request_source: str
-
+class AssistedReliefRequestCreate(BaseModel):
+    victim_id: int
+    disaster_id: int
+    request_type: str
+    description: str
+    location: str
+    priority: str
 
 class ReliefRequestStatusUpdate(BaseModel):
     status: str

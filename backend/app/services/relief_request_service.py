@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session
 
 from app.models.relief_request import ReliefRequest
+from app.models.user import User
 from app.schemas.relief_request import (
     ReliefRequestCreate,
+    AssistedReliefRequestCreate,
     ReliefRequestStatusUpdate
 )
 
@@ -20,6 +22,43 @@ def create_relief_request(
         location=request_data.location,
         priority=request_data.priority,
         request_source=request_data.request_source
+    )
+
+    db.add(new_request)
+    db.commit()
+    db.refresh(new_request)
+
+    return new_request
+
+
+def create_assisted_relief_request(
+    db: Session,
+    request_data: AssistedReliefRequestCreate
+):
+    victim = (
+        db.query(User)
+        .filter(
+            User.id == request_data.victim_id
+        )
+        .first()
+    )
+
+    if victim is None:
+        raise ValueError("Victim not found")
+
+    if victim.role != "victim":
+        raise ValueError(
+            "Selected user is not a victim"
+        )
+
+    new_request = ReliefRequest(
+        victim_id=request_data.victim_id,
+        disaster_id=request_data.disaster_id,
+        request_type=request_data.request_type,
+        description=request_data.description,
+        location=request_data.location,
+        priority=request_data.priority,
+        request_source="assisted"
     )
 
     db.add(new_request)
