@@ -1,0 +1,672 @@
+/* ========================================
+   GLOBAL
+======================================== */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: #ffffff;
+  color: #222;
+}
+
+button {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.app {
+  width: 100%;
+  min-height: 100vh;
+}
+
+
+/* ========================================
+   NAVBAR
+======================================== */
+
+.navbar {
+  width: 100%;
+  height: 72px;
+  padding: 0 6%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border-bottom: 1px solid #eeeeee;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo span {
+  font-size: 25px;
+}
+
+.logo h2 {
+  color: #a61b1b;
+  font-size: 21px;
+  white-space: nowrap;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: #444;
+  font-size: 15px;
+}
+
+.nav-links a:hover {
+  color: #a61b1b;
+}
+
+.login-btn {
+  padding: 9px 18px;
+  background: transparent;
+  color: #a61b1b;
+  border: 1px solid #a61b1b;
+  border-radius: 6px;
+}
+
+.register-btn {
+  padding: 10px 18px;
+  background: #a61b1b;
+  color: white;
+  border-radius: 6px;
+}
+
+
+/* ========================================
+   HERO
+======================================== */
+
+.hero {
+  width: 100%;
+  min-height: 570px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 80px 6%;
+  text-align: center;
+  background: #fff4f2;
+}
+
+.hero-content {
+  width: 100%;
+  max-width: 850px;
+  margin: 0 auto;
+}
+
+.tagline {
+  margin-bottom: 18px;
+  color: #a61b1b;
+  font-size: 13px;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+.hero h1 {
+  margin-bottom: 25px;
+  font-size: 58px;
+  line-height: 1.12;
+  font-weight: 700;
+  color: #222;
+}
+
+.hero h1 span {
+  color: #a61b1b;
+}
+
+.hero-text {
+  max-width: 700px;
+  margin: 0 auto;
+  color: #666;
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.hero-buttons {
+  margin-top: 35px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+}
+
+.primary-btn,
+.secondary-btn {
+  min-width: 190px;
+  padding: 14px 24px;
+  border-radius: 7px;
+  font-size: 15px;
+}
+
+.primary-btn {
+  background: #a61b1b;
+  color: white;
+}
+
+.secondary-btn {
+  background: #222;
+  color: white;
+}
+
+
+/* ========================================
+   COMMON SECTION
+======================================== */
+
+.section-label {
+  margin-bottom: 14px;
+  color: #a61b1b;
+  font-size: 13px;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+.about h2,
+.roles h2,
+.how-it-works h2 {
+  font-size: 36px;
+  line-height: 1.2;
+}
+
+
+/* ========================================
+   ABOUT
+======================================== */
+
+.about {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 90px 30px;
+  text-align: center;
+}
+
+.about h2 {
+  margin-bottom: 25px;
+}
+
+.about p:not(.section-label) {
+  max-width: 760px;
+  margin: 0 auto 12px;
+  color: #666;
+  line-height: 1.7;
+}
+
+
+/* ========================================
+   ROLES
+======================================== */
+
+.roles {
+  width: 100%;
+  padding: 90px 6%;
+  text-align: center;
+  background: #f8f9fa;
+}
+
+.role-container {
+  width: 100%;
+  max-width: 1050px;
+  margin: 45px auto 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 25px;
+}
+
+.role-card {
+  min-height: 330px;
+  padding: 35px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #eeeeee;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.role-icon {
+  margin-bottom: 18px;
+  font-size: 40px;
+}
+
+.role-card h3 {
+  margin-bottom: 14px;
+  font-size: 22px;
+}
+
+.role-card p {
+  flex: 1;
+  color: #666;
+  line-height: 1.6;
+}
+
+.role-card button {
+  margin-top: 20px;
+  padding: 10px 15px;
+  background: transparent;
+  color: #a61b1b;
+  font-weight: bold;
+}
+
+
+/* ========================================
+   HOW IT WORKS
+======================================== */
+
+.how-it-works {
+  width: 100%;
+  padding: 90px 6%;
+  text-align: center;
+}
+
+.steps {
+  width: 100%;
+  max-width: 950px;
+  margin: 50px auto 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 50px;
+}
+
+.step {
+  text-align: center;
+}
+
+.step-number {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #a61b1b;
+  color: white;
+  border-radius: 50%;
+  font-weight: bold;
+}
+
+.step h3 {
+  margin-bottom: 10px;
+  font-size: 19px;
+}
+
+.step p {
+  color: #666;
+  line-height: 1.6;
+}
+
+
+/* ========================================
+   FOOTER
+======================================== */
+
+footer {
+  width: 100%;
+  padding: 35px 20px;
+  text-align: center;
+  background: #222;
+  color: white;
+}
+
+footer h3 {
+  margin-bottom: 8px;
+}
+
+footer p {
+  color: #bbbbbb;
+}
+
+
+/* ========================================
+   LOGIN PAGE
+======================================== */
+
+.login-page {
+  width: 100%;
+  min-height: 100vh;
+  padding: 40px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #fff4f2;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 45px;
+  background: white;
+  border: 1px solid #eeeeee;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+.login-icon {
+  margin-bottom: 15px;
+  font-size: 42px;
+}
+
+.login-card h1 {
+  margin-bottom: 8px;
+}
+
+.login-subtitle {
+  margin-bottom: 30px;
+  color: #777;
+}
+
+.form-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+  font-size: 15px;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #a61b1b;
+}
+
+.login-submit {
+  width: 100%;
+  padding: 13px;
+  background: #a61b1b;
+  color: white;
+  border-radius: 6px;
+  font-weight: bold;
+}
+
+.login-message {
+  margin-top: 20px;
+  color: #a61b1b;
+}
+
+.back-home {
+  margin-top: 20px;
+}
+
+.back-home button {
+  background: transparent;
+  color: #555;
+}
+
+
+/* ========================================
+   DASHBOARD
+======================================== */
+
+.dashboard-page {
+  width: 100%;
+  min-height: 100vh;
+  background: #f8f9fa;
+}
+
+.dashboard-navbar {
+  width: 100%;
+  height: 72px;
+  padding: 0 6%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: white;
+  border-bottom: 1px solid #eeeeee;
+}
+
+.logout-btn {
+  padding: 10px 20px;
+  background: #222;
+  color: white;
+  border-radius: 6px;
+}
+
+.dashboard-content {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 60px 30px;
+}
+
+.dashboard-header {
+  margin-bottom: 40px;
+}
+
+.dashboard-header h1 {
+  margin-bottom: 10px;
+  font-size: 36px;
+}
+
+.dashboard-header p:not(.section-label) {
+  color: #666;
+}
+
+.dashboard-cards {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 25px;
+}
+
+.dashboard-card {
+  min-height: 310px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border: 1px solid #eeeeee;
+  border-radius: 10px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.05);
+}
+
+.dashboard-card-icon {
+  margin-bottom: 15px;
+  font-size: 38px;
+}
+
+.dashboard-card h2 {
+  margin-bottom: 12px;
+}
+
+.dashboard-card p {
+  flex: 1;
+  color: #666;
+  line-height: 1.6;
+}
+
+.dashboard-card button {
+  margin-top: 20px;
+  align-self: flex-start;
+  padding: 11px 18px;
+  background: #a61b1b;
+  color: white;
+  border-radius: 6px;
+}
+
+.dashboard-card .secondary-dashboard-btn {
+  background: #222;
+}
+
+.request-status {
+  width: 100%;
+  margin-top: 50px;
+  padding: 35px;
+  background: white;
+  border: 1px solid #eeeeee;
+  border-radius: 10px;
+}
+
+.request-status h2 {
+  margin-bottom: 25px;
+}
+
+.empty-request {
+  padding: 40px;
+  text-align: center;
+  border: 2px dashed #dddddd;
+  border-radius: 8px;
+}
+
+.empty-icon {
+  margin-bottom: 10px;
+  font-size: 40px;
+}
+
+.empty-request h3 {
+  margin-bottom: 8px;
+}
+
+.empty-request p {
+  margin-bottom: 20px;
+  color: #777;
+}
+
+.empty-request button {
+  padding: 12px 20px;
+  background: #a61b1b;
+  color: white;
+  border-radius: 6px;
+}
+
+
+/* ========================================
+   TABLET
+======================================== */
+
+@media (max-width: 900px) {
+
+  .nav-links {
+    gap: 12px;
+  }
+
+  .role-container,
+  .dashboard-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .steps {
+    grid-template-columns: 1fr;
+    max-width: 500px;
+  }
+
+  .hero h1 {
+    font-size: 48px;
+  }
+}
+
+
+/* ========================================
+   MOBILE
+======================================== */
+
+@media (max-width: 650px) {
+
+  .navbar {
+    height: auto;
+    min-height: 72px;
+    padding: 15px 20px;
+  }
+
+  .nav-links {
+    gap: 8px;
+  }
+
+  .nav-links a {
+    display: none;
+  }
+
+  .logo h2 {
+    font-size: 18px;
+  }
+
+  .hero {
+    min-height: 500px;
+    padding: 60px 20px;
+  }
+
+  .hero h1 {
+    font-size: 38px;
+  }
+
+  .hero-text {
+    font-size: 16px;
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+  }
+
+  .primary-btn,
+  .secondary-btn {
+    width: 100%;
+    max-width: 250px;
+  }
+
+  .about,
+  .roles,
+  .how-it-works {
+    padding: 65px 20px;
+  }
+
+  .about h2,
+  .roles h2,
+  .how-it-works h2 {
+    font-size: 30px;
+  }
+
+  .role-container,
+  .dashboard-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .role-card {
+    min-height: auto;
+  }
+
+  .dashboard-content {
+    padding: 40px 20px;
+  }
+
+  .dashboard-header h1 {
+    font-size: 30px;
+  }
+
+  .login-card {
+    padding: 35px 25px;
+  }
+}
