@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter,Depends,HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
@@ -16,19 +16,20 @@ from app.services.relief_request_service import (
     create_relief_request,
     create_assisted_relief_request,
     get_my_relief_requests,
+    get_all_relief_requests,
     get_relief_request_by_id,
     update_relief_request_status
 )
 
 
-router = APIRouter(
+router=APIRouter(
     prefix="/relief-requests",
     tags=["Relief Requests"]
 )
 
 
 def get_db():
-    db = SessionLocal()
+    db=SessionLocal()
 
     try:
         yield db
@@ -41,8 +42,8 @@ def get_db():
     response_model=ReliefRequestResponse
 )
 def create_request(
-    request_data: ReliefRequestCreate,
-    db: Session = Depends(get_db),
+    request_data:ReliefRequestCreate,
+    db:Session=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     return create_relief_request(
@@ -57,8 +58,8 @@ def create_request(
     response_model=ReliefRequestResponse
 )
 def create_assisted_request(
-    request_data: AssistedReliefRequestCreate,
-    db: Session = Depends(get_db),
+    request_data:AssistedReliefRequestCreate,
+    db:Session=Depends(get_db),
     current_user=Depends(require_role("volunteer"))
 ):
     try:
@@ -78,7 +79,7 @@ def create_assisted_request(
     response_model=list[ReliefRequestResponse]
 )
 def get_my_requests(
-    db: Session = Depends(get_db),
+    db:Session=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     return get_my_relief_requests(
@@ -88,15 +89,26 @@ def get_my_requests(
 
 
 @router.get(
+    "/",
+    response_model=list[ReliefRequestResponse]
+)
+def get_all_requests(
+    db:Session=Depends(get_db),
+    current_user=Depends(require_role("admin"))
+):
+    return get_all_relief_requests(db)
+
+
+@router.get(
     "/{request_id}",
     response_model=ReliefRequestResponse
 )
 def get_request(
-    request_id: int,
-    db: Session = Depends(get_db),
+    request_id:int,
+    db:Session=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    request = get_relief_request_by_id(
+    request=get_relief_request_by_id(
         db,
         request_id,
         current_user
@@ -116,13 +128,13 @@ def get_request(
     response_model=ReliefRequestResponse
 )
 def update_request_status(
-    request_id: int,
-    status_data: ReliefRequestStatusUpdate,
-    db: Session = Depends(get_db),
+    request_id:int,
+    status_data:ReliefRequestStatusUpdate,
+    db:Session=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     try:
-        request = update_relief_request_status(
+        request=update_relief_request_status(
             db,
             request_id,
             status_data,

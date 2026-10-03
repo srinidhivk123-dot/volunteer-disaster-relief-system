@@ -1,5 +1,4 @@
 from sqlalchemy.orm import Session
-
 from app.models.relief_request import ReliefRequest
 from app.models.user import User
 from app.schemas.relief_request import (
@@ -9,12 +8,8 @@ from app.schemas.relief_request import (
 )
 
 
-def create_relief_request(
-    db: Session,
-    request_data: ReliefRequestCreate,
-    current_user
-):
-    new_request = ReliefRequest(
+def create_relief_request(db,request_data,current_user):
+    new_request=ReliefRequest(
         victim_id=current_user["user_id"],
         disaster_id=request_data.disaster_id,
         request_type=request_data.request_type,
@@ -31,27 +26,18 @@ def create_relief_request(
     return new_request
 
 
-def create_assisted_relief_request(
-    db: Session,
-    request_data: AssistedReliefRequestCreate
-):
-    victim = (
-        db.query(User)
-        .filter(
-            User.id == request_data.victim_id
-        )
-        .first()
-    )
+def create_assisted_relief_request(db,request_data):
+    victim=db.query(User).filter(
+        User.id==request_data.victim_id
+    ).first()
 
     if victim is None:
         raise ValueError("Victim not found")
 
-    if victim.role != "victim":
-        raise ValueError(
-            "Selected user is not a victim"
-        )
+    if victim.role!="victim":
+        raise ValueError("Selected user is not a victim")
 
-    new_request = ReliefRequest(
+    new_request=ReliefRequest(
         victim_id=request_data.victim_id,
         disaster_id=request_data.disaster_id,
         request_type=request_data.request_type,
@@ -68,58 +54,40 @@ def create_assisted_relief_request(
     return new_request
 
 
-def get_my_relief_requests(
-    db: Session,
-    current_user
-):
-    requests = (
-        db.query(ReliefRequest)
-        .filter(
-            ReliefRequest.victim_id == current_user["user_id"]
-        )
-        .order_by(ReliefRequest.id.desc())
-        .all()
-    )
-
-    return requests
+def get_my_relief_requests(db,current_user):
+    return db.query(ReliefRequest).filter(
+        ReliefRequest.victim_id==current_user["user_id"]
+    ).order_by(ReliefRequest.id.desc()).all()
 
 
-def get_relief_request_by_id(
-    db: Session,
-    request_id: int,
-    current_user
-):
-    request = (
-        db.query(ReliefRequest)
-        .filter(
-            ReliefRequest.id == request_id,
-            ReliefRequest.victim_id == current_user["user_id"]
-        )
-        .first()
-    )
+def get_all_relief_requests(db):
+    return db.query(ReliefRequest).order_by(
+        ReliefRequest.id.desc()
+    ).all()
 
-    return request
+
+def get_relief_request_by_id(db,request_id,current_user):
+    return db.query(ReliefRequest).filter(
+        ReliefRequest.id==request_id,
+        ReliefRequest.victim_id==current_user["user_id"]
+    ).first()
 
 
 def update_relief_request_status(
-    db: Session,
-    request_id: int,
-    status_data: ReliefRequestStatusUpdate,
+    db,
+    request_id,
+    status_data,
     current_user
 ):
-    request = (
-        db.query(ReliefRequest)
-        .filter(
-            ReliefRequest.id == request_id,
-            ReliefRequest.victim_id == current_user["user_id"]
-        )
-        .first()
-    )
+    request=db.query(ReliefRequest).filter(
+        ReliefRequest.id==request_id,
+        ReliefRequest.victim_id==current_user["user_id"]
+    ).first()
 
     if request is None:
         return None
 
-    allowed_statuses = {
+    allowed_statuses={
         "pending",
         "assigned",
         "in_progress",
@@ -129,7 +97,7 @@ def update_relief_request_status(
     if status_data.status not in allowed_statuses:
         raise ValueError("Invalid relief request status")
 
-    request.status = status_data.status
+    request.status=status_data.status
 
     db.commit()
     db.refresh(request)

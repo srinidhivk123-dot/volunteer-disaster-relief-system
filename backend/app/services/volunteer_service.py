@@ -46,6 +46,14 @@ def get_my_volunteer_profile(
     )
 
 
+def get_all_volunteers(
+    db: Session
+):
+    return db.query(Volunteer).order_by(
+        Volunteer.id.asc()
+    ).all()
+
+
 def update_my_volunteer_profile(
     db: Session,
     volunteer_data: VolunteerCreate,

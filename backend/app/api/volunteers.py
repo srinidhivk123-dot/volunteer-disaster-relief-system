@@ -10,6 +10,7 @@ from app.schemas.volunteer import (
 from app.services.volunteer_service import (
     create_volunteer_profile,
     get_my_volunteer_profile,
+    get_all_volunteers,
     update_my_volunteer_profile
 )
 
@@ -48,6 +49,17 @@ def create_profile(
             status_code=400,
             detail=str(error)
         )
+
+
+@router.get(
+    "/",
+    response_model=list[VolunteerResponse]
+)
+def get_volunteers(
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("admin"))
+):
+    return get_all_volunteers(db)
 
 
 @router.get(

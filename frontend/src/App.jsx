@@ -11,7 +11,7 @@ import RequestHelp from "./pages/RequestHelp";
 import MyRequests from "./pages/MyRequests";
 import VolunteerDashboard from "./pages/VolunteerDashboard";
 import AssistedRequest from "./pages/AssistedRequest";
-
+import AdminDashboard from "./pages/AdminDashboard";
 import "./App.css";
 
 
@@ -189,7 +189,10 @@ function App() {
           path="/assisted-request"
           element={<AssistedRequest />}
         />
-
+        <Route
+         path="/admin-dashboard"
+         element={<AdminDashboard />}
+        />
       </Routes>
 
     </BrowserRouter>
