@@ -1,16 +1,16 @@
-from pydantic import BaseModel
+from pydantic import BaseModel,ConfigDict
 
 
 class VolunteerCreate(BaseModel):
-    skills: str | None = None
-    availability: str | None = None
+    skills:str|None=None
+    availability:str|None=None
 
 
 class VolunteerResponse(BaseModel):
-    id: int
-    user_id: int
-    skills: str | None
-    availability: str | None
+    id:int
+    user_id:int
+    skills:str|None
+    availability:str|None
 
-    class Config:
-        from_attributes = True
+    model_config=ConfigDict(from_attributes=True)
+    

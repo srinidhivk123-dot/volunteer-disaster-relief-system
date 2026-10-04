@@ -1,6 +1,6 @@
 from passlib.context import CryptContext
 from jose import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import os
 
@@ -29,7 +29,7 @@ def verify_password(password, hashed_password):
 def create_access_token(data):
     to_encode = data.copy()
 
-    expire = datetime.utcnow() + timedelta(
+    expire = datetime.now(timezone.utc) + timedelta(
         minutes=ACCESS_TOKEN_EXPIRE_MINUTES
     )
 

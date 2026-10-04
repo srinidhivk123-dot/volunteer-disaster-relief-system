@@ -1,20 +1,19 @@
-from pydantic import BaseModel
+from pydantic import BaseModel,ConfigDict
 
 
 class AssignmentCreate(BaseModel):
-    relief_request_id: int
-    volunteer_id: int
+    relief_request_id:int
+    volunteer_id:int
 
 
 class AssignmentStatusUpdate(BaseModel):
-    status: str
+    status:str
 
 
 class AssignmentResponse(BaseModel):
-    id: int
-    relief_request_id: int
-    volunteer_id: int
-    status: str
+    id:int
+    relief_request_id:int
+    volunteer_id:int
+    status:str
 
-    class Config:
-        from_attributes = True
+    model_config=ConfigDict(from_attributes=True)
