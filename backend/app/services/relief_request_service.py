@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy.orm import Session
 from app.models.relief_request import ReliefRequest
 from app.models.user import User
@@ -6,6 +8,8 @@ from app.schemas.relief_request import (
     AssistedReliefRequestCreate,
     ReliefRequestStatusUpdate
 )
+
+logger=logging.getLogger(__name__)
 
 
 def create_relief_request(db,request_data,current_user):
@@ -22,6 +26,13 @@ def create_relief_request(db,request_data,current_user):
     db.add(new_request)
     db.commit()
     db.refresh(new_request)
+
+    logger.info(
+        "Relief request created: request_id=%s victim_id=%s disaster_id=%s",
+        new_request.id,
+        new_request.victim_id,
+        new_request.disaster_id
+    )
 
     return new_request
 
@@ -50,6 +61,13 @@ def create_assisted_relief_request(db,request_data):
     db.add(new_request)
     db.commit()
     db.refresh(new_request)
+
+    logger.info(
+        "Assisted relief request created: request_id=%s victim_id=%s disaster_id=%s",
+        new_request.id,
+        new_request.victim_id,
+        new_request.disaster_id
+    )
 
     return new_request
 

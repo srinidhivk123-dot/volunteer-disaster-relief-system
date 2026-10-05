@@ -1,5 +1,5 @@
 from fastapi import APIRouter,HTTPException,Depends
-from pydantic import BaseModel
+from pydantic import BaseModel,field_validator
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
@@ -22,7 +22,19 @@ class RegisterRequest(BaseModel):
     name:str
     email:str
     password:str
-    role:str
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls,value):
+        if len(value)<8:
+            raise ValueError("Password must be at least 8 characters long")
+        if not any(char.isupper() for char in value):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not any(char.islower() for char in value):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not any(char.isdigit() for char in value):
+            raise ValueError("Password must contain at least one digit")
+        return value
 
 
 class LoginRequest(BaseModel):
@@ -57,7 +69,7 @@ def register(
         name=user.name,
         email=user.email,
         password_hash=hash_password(user.password),
-        role=user.role
+        role="victim"
     )
 
     db.add(new_user)
