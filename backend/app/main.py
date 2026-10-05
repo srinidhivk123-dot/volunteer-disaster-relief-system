@@ -39,3 +39,6 @@ def root():
     return {
         "message": "Volunteer Disaster Relief System API"
     }
+@app.get("/health")
+def health():
+    return {"status":"OK"}
