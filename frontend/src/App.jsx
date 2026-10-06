@@ -5,6 +5,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 
+import DisasterInformation from "./pages/DisasterInformation";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import RequestHelp from "./pages/RequestHelp";
@@ -141,7 +142,7 @@ function App() {
     <BrowserRouter>
 
       <Routes>
-
+         <Route path="/disaster-information" element={<DisasterInformation />} /> 
         {/* Home */}
         <Route
           path="/"

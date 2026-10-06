@@ -105,9 +105,12 @@ function Dashboard() {
               available relief services.
             </p>
 
-            <button className="secondary-dashboard-btn">
-              View Information
-            </button>
+            <button
+  className="secondary-dashboard-btn"
+  onClick={() => navigate("/disaster-information")}
+>
+  View Information
+</button>
           </div>
 
         </div>
