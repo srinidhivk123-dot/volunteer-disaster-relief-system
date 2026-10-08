@@ -10,10 +10,10 @@ def create_assignment(
     db: Session,
     assignment_data: AssignmentCreate
 ):
-    relief_request = (
+    relief_request=(
         db.query(ReliefRequest)
         .filter(
-            ReliefRequest.id == assignment_data.relief_request_id
+            ReliefRequest.id==assignment_data.relief_request_id
         )
         .first()
     )
@@ -21,10 +21,10 @@ def create_assignment(
     if relief_request is None:
         raise ValueError("Relief request not found")
 
-    volunteer = (
+    volunteer=(
         db.query(Volunteer)
         .filter(
-            Volunteer.id == assignment_data.volunteer_id
+            Volunteer.id==assignment_data.volunteer_id
         )
         .first()
     )
@@ -32,11 +32,11 @@ def create_assignment(
     if volunteer is None:
         raise ValueError("Volunteer not found")
 
-    existing_assignment = (
+    existing_assignment=(
         db.query(Assignment)
         .filter(
             Assignment.relief_request_id
-            == assignment_data.relief_request_id
+            ==assignment_data.relief_request_id
         )
         .first()
     )
@@ -44,11 +44,13 @@ def create_assignment(
     if existing_assignment is not None:
         raise ValueError("Relief request already assigned")
 
-    new_assignment = Assignment(
+    new_assignment=Assignment(
         relief_request_id=assignment_data.relief_request_id,
         volunteer_id=assignment_data.volunteer_id,
         status="assigned"
     )
+
+    relief_request.status="assigned"
 
     db.add(new_assignment)
     db.commit()
@@ -62,18 +64,18 @@ def get_assignment_by_id(
     assignment_id: int,
     current_user
 ):
-    query = (
+    query=(
         db.query(Assignment)
         .filter(
-            Assignment.id == assignment_id
+            Assignment.id==assignment_id
         )
     )
 
-    if current_user["role"] == "volunteer":
-        volunteer = (
+    if current_user["role"]=="volunteer":
+        volunteer=(
             db.query(Volunteer)
             .filter(
-                Volunteer.user_id == current_user["user_id"]
+                Volunteer.user_id==current_user["user_id"]
             )
             .first()
         )
@@ -81,8 +83,8 @@ def get_assignment_by_id(
         if volunteer is None:
             raise ValueError("Volunteer profile not found")
 
-        query = query.filter(
-            Assignment.volunteer_id == volunteer.id
+        query=query.filter(
+            Assignment.volunteer_id==volunteer.id
         )
 
     return query.first()
@@ -92,13 +94,13 @@ def get_all_assignments(
     db: Session,
     current_user
 ):
-    query = db.query(Assignment)
+    query=db.query(Assignment)
 
-    if current_user["role"] == "volunteer":
-        volunteer = (
+    if current_user["role"]=="volunteer":
+        volunteer=(
             db.query(Volunteer)
             .filter(
-                Volunteer.user_id == current_user["user_id"]
+                Volunteer.user_id==current_user["user_id"]
             )
             .first()
         )
@@ -106,8 +108,8 @@ def get_all_assignments(
         if volunteer is None:
             raise ValueError("Volunteer profile not found")
 
-        query = query.filter(
-            Assignment.volunteer_id == volunteer.id
+        query=query.filter(
+            Assignment.volunteer_id==volunteer.id
         )
 
     return (
@@ -123,10 +125,10 @@ def update_assignment_status(
     status_data,
     current_user
 ):
-    assignment = (
+    assignment=(
         db.query(Assignment)
         .filter(
-            Assignment.id == assignment_id
+            Assignment.id==assignment_id
         )
         .first()
     )
@@ -134,11 +136,15 @@ def update_assignment_status(
     if assignment is None:
         return None
 
-    if current_user["role"] == "volunteer":
-        volunteer = (
+    role=current_user["role"]
+    new_status=status_data.status
+    current_status=assignment.status
+
+    if role=="volunteer":
+        volunteer=(
             db.query(Volunteer)
             .filter(
-                Volunteer.user_id == current_user["user_id"]
+                Volunteer.user_id==current_user["user_id"]
             )
             .first()
         )
@@ -146,21 +152,60 @@ def update_assignment_status(
         if volunteer is None:
             raise ValueError("Volunteer profile not found")
 
-        if assignment.volunteer_id != volunteer.id:
+        if assignment.volunteer_id!=volunteer.id:
             raise PermissionError(
                 "You can only update your own assignments"
             )
 
-    allowed_statuses = {
-        "assigned",
-        "in_progress",
-        "completed"
-    }
+        allowed_transitions={
+            "assigned":{
+                "in_progress",
+                "declined"
+            },
+            "in_progress":{
+                "completed"
+            },
+            "completed":set(),
+            "declined":set()
+        }
 
-    if status_data.status not in allowed_statuses:
-        raise ValueError("Invalid assignment status")
+        if new_status not in allowed_transitions.get(
+            current_status,
+            set()
+        ):
+            raise ValueError("Invalid assignment status transition")
 
-    assignment.status = status_data.status
+    elif role=="admin":
+        allowed_statuses={
+            "assigned",
+            "in_progress",
+            "completed",
+            "declined"
+        }
+
+        if new_status not in allowed_statuses:
+            raise ValueError("Invalid assignment status")
+
+    else:
+        raise PermissionError(
+            "You are not authorized to update assignments"
+        )
+
+    assignment.status=new_status
+
+    relief_request=(
+        db.query(ReliefRequest)
+        .filter(
+            ReliefRequest.id==assignment.relief_request_id
+        )
+        .first()
+    )
+
+    if relief_request is not None:
+        if new_status=="declined":
+            relief_request.status="pending"
+        else:
+            relief_request.status=new_status
 
     db.commit()
     db.refresh(assignment)

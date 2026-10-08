@@ -8,12 +8,14 @@ from app.core.dependencies import (
 )
 from app.schemas.relief_request import (
     ReliefRequestCreate,
+    GuestReliefRequestCreate,
     AssistedReliefRequestCreate,
     ReliefRequestResponse,
     ReliefRequestStatusUpdate
 )
 from app.services.relief_request_service import (
     create_relief_request,
+    create_guest_relief_request,
     create_assisted_relief_request,
     get_my_relief_requests,
     get_all_relief_requests,
@@ -50,6 +52,20 @@ def create_request(
         db,
         request_data,
         current_user
+    )
+
+
+@router.post(
+    "/guest",
+    response_model=ReliefRequestResponse
+)
+def create_guest_request(
+    request_data:GuestReliefRequestCreate,
+    db:Session=Depends(get_db)
+):
+    return create_guest_relief_request(
+        db,
+        request_data
     )
 
 
@@ -139,6 +155,11 @@ def update_request_status(
             request_id,
             status_data,
             current_user
+        )
+    except PermissionError as error:
+        raise HTTPException(
+            status_code=403,
+            detail=str(error)
         )
     except ValueError as error:
         raise HTTPException(

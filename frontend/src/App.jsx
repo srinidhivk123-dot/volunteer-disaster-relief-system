@@ -13,6 +13,7 @@ import MyRequests from "./pages/MyRequests";
 import VolunteerDashboard from "./pages/VolunteerDashboard";
 import AssistedRequest from "./pages/AssistedRequest";
 import AdminDashboard from "./pages/AdminDashboard";
+import GuestRequest from "./pages/GuestRequest";
 import "./App.css";
 
 
@@ -24,7 +25,7 @@ function Home() {
 
       <nav className="navbar">
         <div className="logo">
-          🚨 ReliefConnect
+          ðŸš¨ ReliefConnect
         </div>
 
         <button
@@ -41,7 +42,7 @@ function Home() {
         <div className="hero-content">
 
           <div className="hero-icon">
-            🚨
+            ðŸš¨
           </div>
 
           <h1>
@@ -62,6 +63,13 @@ function Home() {
             Get Started
           </button>
 
+          <button
+            className="hero-button"
+            onClick={() => navigate("/guest-request")}
+          >
+            Request Help as Guest
+          </button>
+
         </div>
 
       </div>
@@ -72,7 +80,7 @@ function Home() {
         <div className="feature-card">
 
           <div className="feature-icon">
-            🆘
+            ðŸ†˜
           </div>
 
           <h2>
@@ -81,7 +89,7 @@ function Home() {
 
           <p>
             Submit requests for food, water, medical
-            assistance, shelter, and other emergency needs.
+            assistance, shelter, andother emergency needs.
           </p>
 
         </div>
@@ -90,7 +98,7 @@ function Home() {
         <div className="feature-card">
 
           <div className="feature-icon">
-            🤝
+            ðŸ¤
           </div>
 
           <h2>
@@ -98,26 +106,8 @@ function Home() {
           </h2>
 
           <p>
-            Volunteers can view assigned relief tasks
-            and update their progress.
-          </p>
-
-        </div>
-
-
-        <div className="feature-card">
-
-          <div className="feature-icon">
-            📢
-          </div>
-
-          <h2>
-            Disaster Information
-          </h2>
-
-          <p>
-            Stay informed about active disaster events
-            and relief activities.
+            Volunteers can register their skills,
+            availability, and assist disaster victims.
           </p>
 
         </div>
@@ -142,7 +132,12 @@ function App() {
     <BrowserRouter>
 
       <Routes>
-         <Route path="/disaster-information" element={<DisasterInformation />} /> 
+
+        <Route
+          path="/disaster-information"
+          element={<DisasterInformation />}
+        />
+
         {/* Home */}
         <Route
           path="/"
@@ -171,6 +166,13 @@ function App() {
         />
 
 
+        {/* Guest - Create Relief Request */}
+        <Route
+          path="/guest-request"
+          element={<GuestRequest />}
+        />
+
+
         {/* Victim - View My Requests */}
         <Route
           path="/my-requests"
@@ -190,10 +192,14 @@ function App() {
           path="/assisted-request"
           element={<AssistedRequest />}
         />
+
+
+        {/* Admin Dashboard */}
         <Route
-         path="/admin-dashboard"
-         element={<AdminDashboard />}
+          path="/admin-dashboard"
+          element={<AdminDashboard />}
         />
+
       </Routes>
 
     </BrowserRouter>

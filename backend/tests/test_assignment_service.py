@@ -69,6 +69,7 @@ class TestAssignmentService:
 
         db.close()
 
+
     def test_create_assignment_relief_request_not_found(self):
         db=get_test_db()
 
@@ -94,6 +95,7 @@ class TestAssignmentService:
             assert str(error)=="Relief request not found"
 
         db.close()
+
 
     def test_create_assignment_volunteer_not_found(self):
         db=get_test_db()
@@ -125,6 +127,7 @@ class TestAssignmentService:
             assert str(error)=="Volunteer not found"
 
         db.close()
+
 
     def test_create_assignment_duplicate(self):
         db=get_test_db()
@@ -173,6 +176,7 @@ class TestAssignmentService:
 
         db.close()
 
+
     def test_get_assignment_by_id_admin(self):
         db=get_test_db()
 
@@ -202,6 +206,7 @@ class TestAssignmentService:
         assert result.volunteer_id==1
 
         db.close()
+
 
     def test_get_assignment_by_id_volunteer(self):
         db=get_test_db()
@@ -241,6 +246,7 @@ class TestAssignmentService:
         assert result.volunteer_id==volunteer.id
 
         db.close()
+
 
     def test_get_all_assignments_volunteer(self):
         db=get_test_db()
@@ -289,6 +295,7 @@ class TestAssignmentService:
 
         db.close()
 
+
     def test_update_assignment_status_admin(self):
         db=get_test_db()
 
@@ -321,6 +328,7 @@ class TestAssignmentService:
         assert result.status=="completed"
 
         db.close()
+
 
     def test_update_assignment_status_volunteer(self):
         db=get_test_db()
@@ -364,6 +372,7 @@ class TestAssignmentService:
         assert result.status=="in_progress"
 
         db.close()
+
 
     def test_update_assignment_status_wrong_volunteer(self):
         db=get_test_db()
@@ -409,6 +418,7 @@ class TestAssignmentService:
 
         db.close()
 
+
     def test_update_assignment_status_invalid_status(self):
         db=get_test_db()
 
@@ -440,5 +450,252 @@ class TestAssignmentService:
             assert False
         except ValueError as error:
             assert str(error)=="Invalid assignment status"
+
+        db.close()
+
+
+    def test_volunteer_accepts_assignment(self):
+        db=get_test_db()
+
+        volunteer=Volunteer(
+            user_id=4,
+            skills="First Aid",
+            availability="Available"
+        )
+
+        relief_request=ReliefRequest(
+            victim_id=5,
+            disaster_id=1,
+            request_type="food",
+            description="Need food",
+            location="Trichy",
+            priority="HIGH",
+            request_source="victim",
+            status="assigned"
+        )
+
+        db.add_all([volunteer,relief_request])
+        db.commit()
+        db.refresh(volunteer)
+        db.refresh(relief_request)
+
+        assignment=Assignment(
+            relief_request_id=relief_request.id,
+            volunteer_id=volunteer.id,
+            status="assigned"
+        )
+
+        db.add(assignment)
+        db.commit()
+        db.refresh(assignment)
+
+        class StatusData:
+            status="in_progress"
+
+        current_user={
+            "user_id":4,
+            "role":"volunteer"
+        }
+
+        result=update_assignment_status(
+            db,
+            assignment.id,
+            StatusData(),
+            current_user
+        )
+
+        assert result.status=="in_progress"
+        assert relief_request.status=="in_progress"
+
+        db.close()
+
+
+    def test_volunteer_declines_assignment(self):
+        db=get_test_db()
+
+        volunteer=Volunteer(
+            user_id=4,
+            skills="First Aid",
+            availability="Available"
+        )
+
+        relief_request=ReliefRequest(
+            victim_id=5,
+            disaster_id=1,
+            request_type="food",
+            description="Need food",
+            location="Trichy",
+            priority="HIGH",
+            request_source="victim",
+            status="assigned"
+        )
+
+        db.add_all([volunteer,relief_request])
+        db.commit()
+        db.refresh(volunteer)
+        db.refresh(relief_request)
+
+        assignment=Assignment(
+            relief_request_id=relief_request.id,
+            volunteer_id=volunteer.id,
+            status="assigned"
+        )
+
+        db.add(assignment)
+        db.commit()
+        db.refresh(assignment)
+
+        class StatusData:
+            status="declined"
+
+        current_user={
+            "user_id":4,
+            "role":"volunteer"
+        }
+
+        result=update_assignment_status(
+            db,
+            assignment.id,
+            StatusData(),
+            current_user
+        )
+
+        assert result.status=="declined"
+        assert relief_request.status=="pending"
+
+        db.close()
+
+
+    def test_volunteer_cannot_update_other_volunteers_assignment(self):
+        db=get_test_db()
+
+        volunteer=Volunteer(
+            user_id=4,
+            skills="First Aid",
+            availability="Available"
+        )
+
+        db.add(volunteer)
+        db.commit()
+        db.refresh(volunteer)
+
+        assignment=Assignment(
+            relief_request_id=1,
+            volunteer_id=volunteer.id,
+            status="assigned"
+        )
+
+        db.add(assignment)
+        db.commit()
+        db.refresh(assignment)
+
+        class StatusData:
+            status="in_progress"
+
+        current_user={
+            "user_id":999,
+            "role":"volunteer"
+        }
+
+        try:
+            update_assignment_status(
+                db,
+                assignment.id,
+                StatusData(),
+                current_user
+            )
+            assert False
+        except ValueError as error:
+            assert str(error)=="Volunteer profile not found"
+
+        db.close()
+
+
+    def test_volunteer_cannot_skip_assignment_status(self):
+        db=get_test_db()
+
+        volunteer=Volunteer(
+            user_id=4,
+            skills="First Aid",
+            availability="Available"
+        )
+
+        db.add(volunteer)
+        db.commit()
+        db.refresh(volunteer)
+
+        assignment=Assignment(
+            relief_request_id=1,
+            volunteer_id=volunteer.id,
+            status="assigned"
+        )
+
+        db.add(assignment)
+        db.commit()
+        db.refresh(assignment)
+
+        class StatusData:
+            status="completed"
+
+        current_user={
+            "user_id":4,
+            "role":"volunteer"
+        }
+
+        try:
+            update_assignment_status(
+                db,
+                assignment.id,
+                StatusData(),
+                current_user
+            )
+            assert False
+        except ValueError as error:
+            assert str(error)=="Invalid assignment status transition"
+
+        db.close()
+
+
+    def test_declined_assignment_cannot_be_accepted_again(self):
+        db=get_test_db()
+
+        volunteer=Volunteer(
+            user_id=4,
+            skills="First Aid",
+            availability="Available"
+        )
+
+        db.add(volunteer)
+        db.commit()
+        db.refresh(volunteer)
+
+        assignment=Assignment(
+            relief_request_id=1,
+            volunteer_id=volunteer.id,
+            status="declined"
+        )
+
+        db.add(assignment)
+        db.commit()
+        db.refresh(assignment)
+
+        class StatusData:
+            status="in_progress"
+
+        current_user={
+            "user_id":4,
+            "role":"volunteer"
+        }
+
+        try:
+            update_assignment_status(
+                db,
+                assignment.id,
+                StatusData(),
+                current_user
+            )
+            assert False
+        except ValueError as error:
+            assert str(error)=="Invalid assignment status transition"
 
         db.close()

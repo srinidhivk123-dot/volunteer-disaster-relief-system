@@ -6,6 +6,7 @@ function VolunteerDashboard() {
   const [profile, setProfile] = useState(null);
   const [assignments, setAssignments] = useState([]);
   const [message, setMessage] = useState("Loading...");
+  const [updatingAssignment, setUpdatingAssignment] = useState(null);
 
   const navigate = useNavigate();
 
@@ -65,6 +66,51 @@ function VolunteerDashboard() {
 
     loadVolunteerData();
   }, [navigate]);
+
+  const updateAssignmentStatus = async (assignmentId, status) => {
+    const token = localStorage.getItem("access_token");
+
+    setUpdatingAssignment(assignmentId);
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/assignments/${assignmentId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            status: status,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(
+          data.detail || "Failed to update assignment."
+        );
+        return;
+      }
+
+      setAssignments((currentAssignments) =>
+        currentAssignments.map((assignment) =>
+          assignment.id === assignmentId
+            ? data
+            : assignment
+        )
+      );
+    } catch (error) {
+      console.error(error);
+      setMessage("Cannot connect to the backend.");
+    } finally {
+      setUpdatingAssignment(null);
+    }
+  };
 
   const logout = () => {
     localStorage.removeItem("access_token");
@@ -131,6 +177,44 @@ function VolunteerDashboard() {
                   <strong>Status:</strong>{" "}
                   {assignment.status}
                 </p>
+
+                {assignment.status === "assigned" && (
+                  <div>
+
+                    <button
+                      onClick={() =>
+                        updateAssignmentStatus(
+                          assignment.id,
+                          "in_progress"
+                        )
+                      }
+                      disabled={
+                        updatingAssignment === assignment.id
+                      }
+                    >
+                      {updatingAssignment === assignment.id
+                        ? "Updating..."
+                        : "Accept"}
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        updateAssignmentStatus(
+                          assignment.id,
+                          "declined"
+                        )
+                      }
+                      disabled={
+                        updatingAssignment === assignment.id
+                      }
+                    >
+                      {updatingAssignment === assignment.id
+                        ? "Updating..."
+                        : "Decline"}
+                    </button>
+
+                  </div>
+                )}
 
                 <hr />
 
