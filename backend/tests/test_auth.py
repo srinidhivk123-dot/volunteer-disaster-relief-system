@@ -174,3 +174,75 @@ class TestAuth:
         response=client.get("/auth/me")
 
         assert response.status_code==401
+
+
+    def test_role_specific_login_victim(self, client):
+        email = "victim_login_test@example.com"
+        password = "TestPassword@123"
+
+        reg = client.post(
+            "/auth/register",
+            json={"name": "Victim User", "email": email, "password": password, "role": "victim"}
+        )
+        assert reg.status_code == 200
+
+        # Login through victim endpoint
+        res = client.post("/auth/login/victim", json={"email": email, "password": password})
+        assert res.status_code == 200
+        assert res.json()["role"] == "victim"
+
+
+    def test_role_specific_login_volunteer(self, client):
+        email = "volunteer_reg_test@example.com"
+        password = "TestPassword@123"
+
+        reg = client.post(
+            "/auth/register/volunteer",
+            json={
+                "name": "Volunteer User",
+                "email": email,
+                "password": password,
+                "skills": "Medical & Rescue"
+            }
+        )
+        assert reg.status_code == 200
+        assert reg.json()["role"] == "volunteer"
+
+        # Login through volunteer endpoint
+        res = client.post("/auth/login/volunteer", json={"email": email, "password": password})
+        assert res.status_code == 200
+        assert res.json()["role"] == "volunteer"
+
+
+    def test_role_specific_login_wrong_role_rejected(self, client):
+        email = "victim_cross_role@example.com"
+        password = "TestPassword@123"
+
+        client.post(
+            "/auth/register",
+            json={"name": "Victim Only", "email": email, "password": password, "role": "victim"}
+        )
+
+        # Attempt to log in through admin portal with victim account
+        res = client.post("/auth/login/admin", json={"email": email, "password": password})
+        assert res.status_code == 403
+        assert "Access denied" in res.json()["detail"]
+
+        # Attempt to log in through volunteer portal with victim account
+        res_vol = client.post("/auth/login/volunteer", json={"email": email, "password": password})
+        assert res_vol.status_code == 403
+        assert "Access denied" in res_vol.json()["detail"]
+
+
+    def test_public_admin_registration_rejected(self, client):
+        res = client.post(
+            "/auth/register",
+            json={
+                "name": "Malicious Admin",
+                "email": "hacker_admin@example.com",
+                "password": "TestPassword@123",
+                "role": "admin"
+            }
+        )
+        assert res.status_code == 400
+        assert "Public administrator registration is not permitted" in res.json()["detail"]

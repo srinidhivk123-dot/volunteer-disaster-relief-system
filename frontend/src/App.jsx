@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import DisasterInformation from "./pages/DisasterInformation";
 import Login from "./pages/Login";
+import RoleLogin from "./pages/RoleLogin";
 import Dashboard from "./pages/Dashboard";
 import RequestHelp from "./pages/RequestHelp";
 import MyRequests from "./pages/MyRequests";
@@ -102,6 +103,9 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/login/victim" element={<RoleLogin role="victim" />} />
+        <Route path="/login/volunteer" element={<RoleLogin role="volunteer" />} />
+        <Route path="/login/admin" element={<RoleLogin role="admin" />} />
         <Route path="/guest-request" element={<GuestRequest />} />
         <Route path="/disaster-information" element={<DisasterInformation />} />
         

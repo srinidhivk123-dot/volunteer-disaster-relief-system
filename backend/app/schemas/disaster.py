@@ -21,7 +21,7 @@ class DisasterResponse(BaseModel):
     id:int
     name:str
     disaster_type:str
-    description:str|None
+    description:str|None=None
     location:str
     status:str
 

@@ -33,6 +33,10 @@ export function getStoredUser() {
         .join("")
     );
     const parsed = JSON.parse(jsonPayload);
+    if (parsed.exp && parsed.exp * 1000 < Date.now()) {
+      removeAuthToken();
+      return null;
+    }
     return {
       userId: parsed.user_id,
       role: parsed.role,
@@ -84,6 +88,10 @@ export async function request(path, options = {}) {
   }
 
   if (!response.ok) {
+    if (response.status === 401 && token) {
+      removeAuthToken();
+    }
+
     let errorMsg = "An unexpected error occurred.";
     if (data) {
       if (typeof data.detail === "string") {
@@ -107,8 +115,15 @@ export async function request(path, options = {}) {
 
 export const api = {
   // Auth
-  login: (email, password) => request("/auth/login", { method: "POST", body: { email, password } }),
+  login: (email, password, role = null) => {
+    const endpoint = role ? `/auth/login/${role}` : "/auth/login";
+    return request(endpoint, { method: "POST", body: { email, password } });
+  },
+  loginVictim: (email, password) => request("/auth/login/victim", { method: "POST", body: { email, password } }),
+  loginVolunteer: (email, password) => request("/auth/login/volunteer", { method: "POST", body: { email, password } }),
+  loginAdmin: (email, password) => request("/auth/login/admin", { method: "POST", body: { email, password } }),
   register: (name, email, password, role = "victim") => request("/auth/register", { method: "POST", body: { name, email, password, role } }),
+  registerVolunteer: (payload) => request("/auth/register/volunteer", { method: "POST", body: payload }),
   getMe: () => request("/auth/me"),
 
   // Disasters

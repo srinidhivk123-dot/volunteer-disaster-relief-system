@@ -31,12 +31,23 @@ logger.info("Application started")
 def seed_default_roles():
     try:
         from app.core.database import SessionLocal
+        from app.core.security import hash_password
         from app.models.user import User
         from app.models.volunteer import Volunteer
         with SessionLocal() as db:
             admin = db.query(User).filter(User.email == "admin@example.com").first()
-            if admin and admin.role != "admin":
-                admin.role = "admin"
+            if admin:
+                if admin.role != "admin":
+                    admin.role = "admin"
+                    db.commit()
+            else:
+                new_admin = User(
+                    name="System Administrator",
+                    email="admin@example.com",
+                    password_hash=hash_password("TestPassword@123"),
+                    role="admin"
+                )
+                db.add(new_admin)
                 db.commit()
 
             vol = db.query(User).filter(User.email == "volunteer@example.com").first()
@@ -44,16 +55,28 @@ def seed_default_roles():
                 if vol.role != "volunteer":
                     vol.role = "volunteer"
                     db.commit()
-                vol_profile = db.query(Volunteer).filter(Volunteer.user_id == vol.id).first()
-                if not vol_profile:
-                    db.add(Volunteer(
-                        user_id=vol.id,
-                        skills="Emergency Medical & Rescue",
-                        availability="Available",
-                        latitude=11.2588,
-                        longitude=75.7804
-                    ))
-                    db.commit()
+            else:
+                new_vol_user = User(
+                    name="Field Relief Volunteer",
+                    email="volunteer@example.com",
+                    password_hash=hash_password("TestPassword@123"),
+                    role="volunteer"
+                )
+                db.add(new_vol_user)
+                db.commit()
+                db.refresh(new_vol_user)
+                vol = new_vol_user
+
+            vol_profile = db.query(Volunteer).filter(Volunteer.user_id == vol.id).first()
+            if not vol_profile:
+                db.add(Volunteer(
+                    user_id=vol.id,
+                    skills="Emergency Medical & Rescue",
+                    availability="Available",
+                    latitude=11.2588,
+                    longitude=75.7804
+                ))
+                db.commit()
     except Exception as e:
         logger.warning("Seed roles notice: %s", e)
 

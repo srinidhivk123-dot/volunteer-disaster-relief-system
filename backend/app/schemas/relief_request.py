@@ -39,16 +39,16 @@ class ReliefRequestStatusUpdate(BaseModel):
 
 class ReliefRequestResponse(BaseModel):
     id:int
-    victim_id:int|None
+    victim_id:int|None=None
     disaster_id:int
     request_type:str
     description:str
     location:str
-    priority:str
-    request_source:str
-    status:str
-    phone:str|None
-    latitude:float|None
-    longitude:float|None
+    priority:str="MEDIUM"
+    request_source:str|None="victim"
+    status:str="pending"
+    phone:str|None=None
+    latitude:float|None=None
+    longitude:float|None=None
 
     model_config=ConfigDict(from_attributes=True)

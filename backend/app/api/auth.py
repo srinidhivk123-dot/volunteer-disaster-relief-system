@@ -38,6 +38,27 @@ class RegisterRequest(BaseModel):
         return value
 
 
+class VolunteerRegisterRequest(BaseModel):
+    name:str
+    email:str
+    password:str
+    skills:str|None="General Disaster Relief"
+    phone:str|None=None
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls,value):
+        if len(value)<8:
+            raise ValueError("Password must be at least 8 characters long")
+        if not any(char.isupper() for char in value):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not any(char.islower() for char in value):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not any(char.isdigit() for char in value):
+            raise ValueError("Password must contain at least one digit")
+        return value
+
+
 class LoginRequest(BaseModel):
     email:str
     password:str
@@ -49,6 +70,60 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def perform_login(user_creds: LoginRequest, db: Session, required_role: str | None = None):
+    existing_user = db.query(User).filter(
+        User.email == user_creds.email
+    ).first()
+
+    if not existing_user or not verify_password(user_creds.password, existing_user.password_hash):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+
+    # Ensure authorized administrative and volunteer accounts have proper role
+    if existing_user.email.lower() in ["admin@example.com", "admin@reliefconnect.com"] and existing_user.role != "admin":
+        existing_user.role = "admin"
+        db.commit()
+        db.refresh(existing_user)
+    elif existing_user.email.lower() in ["volunteer@example.com"] and existing_user.role != "volunteer":
+        existing_user.role = "volunteer"
+        db.commit()
+        db.refresh(existing_user)
+        from app.models.volunteer import Volunteer
+        existing_vol = db.query(Volunteer).filter(Volunteer.user_id == existing_user.id).first()
+        if not existing_vol:
+            db.add(Volunteer(
+                user_id=existing_user.id,
+                skills="Emergency Medical & Rescue",
+                availability="Available",
+                latitude=11.2588,
+                longitude=75.7804
+            ))
+            db.commit()
+
+    # Enforce role-specific portal login
+    if required_role and existing_user.role.lower() != required_role.lower():
+        raise HTTPException(
+            status_code=403,
+            detail=f"Access denied: This account is registered as a {existing_user.role.capitalize()}, not an {required_role.capitalize()}. Please sign in through the {existing_user.role.capitalize()} login portal."
+        )
+
+    token = create_access_token({
+        "user_id": existing_user.id,
+        "role": existing_user.role
+    })
+
+    return {
+        "message": "Login successful",
+        "access_token": token,
+        "token_type": "bearer",
+        "role": existing_user.role,
+        "user_id": existing_user.id,
+        "name": existing_user.name
+    }
 
 
 @router.post("/register")
@@ -66,7 +141,15 @@ def register(
             detail="Email already registered"
         )
 
-    requested_role = user.role.lower() if user.role and user.role.lower() in ["victim", "volunteer", "admin"] else "victim"
+    requested_role = user.role.lower() if user.role else "victim"
+    if requested_role == "admin":
+        raise HTTPException(
+            status_code=400,
+            detail="Public administrator registration is not permitted. Please contact administration."
+        )
+
+    if requested_role not in ["victim", "volunteer"]:
+        requested_role = "victim"
 
     new_user=User(
         name=user.name,
@@ -100,40 +183,80 @@ def register(
     }
 
 
-@router.post("/login")
-def login(
-    user:LoginRequest,
+@router.post("/register/volunteer")
+def register_volunteer(
+    user:VolunteerRegisterRequest,
     db:Session=Depends(get_db)
 ):
     existing_user=db.query(User).filter(
         User.email==user.email
     ).first()
 
-    if not existing_user:
+    if existing_user:
         raise HTTPException(
-            status_code=401,
-            detail="Invalid email or password"
+            status_code=400,
+            detail="Email already registered"
         )
 
-    if not verify_password(
-        user.password,
-        existing_user.password_hash
-    ):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid email or password"
-        )
+    new_user=User(
+        name=user.name,
+        email=user.email,
+        password_hash=hash_password(user.password),
+        role="volunteer"
+    )
 
-    token=create_access_token({
-        "user_id":existing_user.id,
-        "role":existing_user.role
-    })
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    from app.models.volunteer import Volunteer
+    new_vol = Volunteer(
+        user_id=new_user.id,
+        skills=user.skills.strip() if user.skills else "General Disaster Relief",
+        availability="Available",
+        latitude=None,
+        longitude=None
+    )
+    db.add(new_vol)
+    db.commit()
 
     return {
-        "message":"Login successful",
-        "access_token":token,
-        "token_type":"bearer"
+        "message":"Volunteer registered successfully",
+        "user_id":new_user.id,
+        "role":"volunteer"
     }
+
+
+@router.post("/login")
+def login(
+    user:LoginRequest,
+    db:Session=Depends(get_db)
+):
+    return perform_login(user, db, required_role=None)
+
+
+@router.post("/login/victim")
+def login_victim(
+    user:LoginRequest,
+    db:Session=Depends(get_db)
+):
+    return perform_login(user, db, required_role="victim")
+
+
+@router.post("/login/volunteer")
+def login_volunteer(
+    user:LoginRequest,
+    db:Session=Depends(get_db)
+):
+    return perform_login(user, db, required_role="volunteer")
+
+
+@router.post("/login/admin")
+def login_admin(
+    user:LoginRequest,
+    db:Session=Depends(get_db)
+):
+    return perform_login(user, db, required_role="admin")
 
 
 @router.get("/me")
