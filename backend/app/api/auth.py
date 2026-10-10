@@ -1,8 +1,9 @@
 from fastapi import APIRouter,HTTPException,Depends
 from pydantic import BaseModel,field_validator
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
+from app.core.database import SessionLocal, get_db
 from app.core.security import (
     hash_password,
     verify_password,
@@ -12,10 +13,11 @@ from app.core.dependencies import get_current_user
 from app.models.user import User
 
 
-router=APIRouter(
+router = APIRouter(
     prefix="/auth",
     tags=["Authentication"]
 )
+
 
 
 class RegisterRequest(BaseModel):
@@ -64,17 +66,10 @@ class LoginRequest(BaseModel):
     password:str
 
 
-def get_db():
-    db=SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
 def perform_login(user_creds: LoginRequest, db: Session, required_role: str | None = None):
+    clean_email = user_creds.email.strip().lower()
     existing_user = db.query(User).filter(
-        User.email == user_creds.email
+        func.lower(User.email) == clean_email
     ).first()
 
     if not existing_user or not verify_password(user_creds.password, existing_user.password_hash):
@@ -83,33 +78,13 @@ def perform_login(user_creds: LoginRequest, db: Session, required_role: str | No
             detail="Invalid email or password"
         )
 
-    # Ensure authorized administrative and volunteer accounts have proper role
-    if existing_user.email.lower() in ["admin@example.com", "admin@reliefconnect.com"] and existing_user.role != "admin":
-        existing_user.role = "admin"
-        db.commit()
-        db.refresh(existing_user)
-    elif existing_user.email.lower() in ["volunteer@example.com"] and existing_user.role != "volunteer":
-        existing_user.role = "volunteer"
-        db.commit()
-        db.refresh(existing_user)
-        from app.models.volunteer import Volunteer
-        existing_vol = db.query(Volunteer).filter(Volunteer.user_id == existing_user.id).first()
-        if not existing_vol:
-            db.add(Volunteer(
-                user_id=existing_user.id,
-                skills="Emergency Medical & Rescue",
-                availability="Available",
-                latitude=11.2588,
-                longitude=75.7804
-            ))
-            db.commit()
-
-    # Enforce role-specific portal login
+    # Enforce role-specific portal login if requested
     if required_role and existing_user.role.lower() != required_role.lower():
         raise HTTPException(
             status_code=403,
             detail=f"Access denied: This account is registered as a {existing_user.role.capitalize()}, not an {required_role.capitalize()}. Please sign in through the {existing_user.role.capitalize()} login portal."
         )
+
 
     token = create_access_token({
         "user_id": existing_user.id,

@@ -44,7 +44,7 @@ function AdminDashboard() {
 
   const loadAdminData = useCallback(async () => {
     if (!user) {
-      navigate("/login", { replace: true });
+      navigate("/login/admin", { replace: true });
       return;
     }
 
@@ -57,21 +57,33 @@ function AdminDashboard() {
     setErrorMessage("");
 
     try {
-      const [reqData, assignData, disasterData, volData] = await Promise.all([
+      const results = await Promise.allSettled([
         api.getAllRequests(),
         api.getAllAssignments(),
         api.getAllDisasters(),
         api.getAllVolunteers(),
       ]);
 
-      setRequests(Array.isArray(reqData) ? reqData : []);
-      setAssignments(Array.isArray(assignData) ? assignData : []);
-      setDisasters(Array.isArray(disasterData) ? disasterData : []);
-      setVolunteers(Array.isArray(volData) ? volData : []);
+      const [reqRes, assignRes, disasterRes, volRes] = results;
+
+      if (reqRes.status === "fulfilled") setRequests(Array.isArray(reqRes.value) ? reqRes.value : []);
+      if (assignRes.status === "fulfilled") setAssignments(Array.isArray(assignRes.value) ? assignRes.value : []);
+      if (disasterRes.status === "fulfilled") setDisasters(Array.isArray(disasterRes.value) ? disasterRes.value : []);
+      if (volRes.status === "fulfilled") setVolunteers(Array.isArray(volRes.value) ? volRes.value : []);
+
+      const rejected = results.filter((r) => r.status === "rejected");
+      if (rejected.length > 0) {
+        const firstErr = rejected[0].reason;
+        if (firstErr?.status === 401) {
+          navigate("/login/admin", { replace: true });
+          return;
+        }
+        console.warn("Some administrative data failed to load:", rejected.map((r) => r.reason));
+      }
     } catch (err) {
       console.error("Admin data loading error:", err);
       if (err.status === 401) {
-        navigate("/login", { replace: true });
+        navigate("/login/admin", { replace: true });
         return;
       }
       setErrorMessage(err.message || "Unable to retrieve administration records.");
@@ -81,38 +93,8 @@ function AdminDashboard() {
   }, [navigate, user]);
 
   useEffect(() => {
-    let isMounted = true;
-    Promise.all([
-      api.getAllRequests(),
-      api.getAllAssignments(),
-      api.getAllDisasters(),
-      api.getAllVolunteers(),
-    ])
-      .then(([reqData, assignData, disasterData, volData]) => {
-        if (isMounted) {
-          setRequests(Array.isArray(reqData) ? reqData : []);
-          setAssignments(Array.isArray(assignData) ? assignData : []);
-          setDisasters(Array.isArray(disasterData) ? disasterData : []);
-          setVolunteers(Array.isArray(volData) ? volData : []);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          console.error("Admin data loading error:", err);
-          if (err.status === 401) {
-            navigate("/login", { replace: true });
-            return;
-          }
-          setErrorMessage(err.message || "Unable to retrieve administration records.");
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [navigate]);
+    loadAdminData();
+  }, [loadAdminData]);
 
   const handleVolunteerChange = (requestId, volunteerId) => {
     setSelectedVolunteers((current) => ({
@@ -330,7 +312,7 @@ function AdminDashboard() {
             <div className="admin-summary-card stat-teal">
               <h3>Active Disasters</h3>
               <p className="stat-number">
-                {loading ? "..." : disasters.filter((d) => d.status === "active").length}
+                {loading ? "..." : disasters.filter((d) => d.status?.toLowerCase() === "active").length}
               </p>
             </div>
             <div className="admin-summary-card stat-teal">
@@ -734,7 +716,7 @@ function AdminDashboard() {
                                 disabled={actionLoadingDisasterId === d.id}
                                 onClick={() => handleToggleDisasterStatus(d)}
                               >
-                                {d.status === "active" ? "Mark Resolved" : "Reactivate"}
+                                {d.status?.toLowerCase() === "active" ? "Mark Resolved" : "Reactivate"}
                               </button>
                               <button
                                 type="button"

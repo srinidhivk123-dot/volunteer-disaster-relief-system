@@ -7,9 +7,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
-from app.core.database import Base
+from app.core.database import Base, get_db
 from app.main import app
-from app.api.auth import get_db
+
 
 TEST_DATABASE_URL="sqlite://"
 

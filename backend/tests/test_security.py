@@ -57,3 +57,34 @@ class TestSecurity:
         result=verify_token("invalid.token.value")
 
         assert result is None
+
+    def test_production_secret_key_enforced(self, monkeypatch):
+        import importlib
+        import app.core.security as sec
+        orig_secret = sec.SECRET_KEY
+        orig_env = sec.ENVIRONMENT
+
+        monkeypatch.setenv("ENVIRONMENT", "production")
+        monkeypatch.setenv("SECRET_KEY", "")
+
+        import pytest
+        try:
+            # 1. Test empty secret in production
+            with pytest.raises(RuntimeError) as exc_info:
+                importlib.reload(sec)
+            assert "CRITICAL SECURITY CONFIGURATION ERROR" in str(exc_info.value)
+
+            # 2. Test weak short secret in production
+            monkeypatch.setenv("SECRET_KEY", "too-short")
+            with pytest.raises(RuntimeError) as exc_info2:
+                importlib.reload(sec)
+            assert "too short" in str(exc_info2.value)
+
+            # 3. Test strong secret in production succeeds
+            monkeypatch.setenv("SECRET_KEY", "a" * 32)
+            importlib.reload(sec)
+            assert sec.SECRET_KEY == "a" * 32
+        finally:
+            monkeypatch.setenv("ENVIRONMENT", orig_env)
+            monkeypatch.setenv("SECRET_KEY", orig_secret)
+            importlib.reload(sec)

@@ -17,14 +17,21 @@ from app.schemas.relief_request import (
 logger=logging.getLogger(__name__)
 
 
-def create_relief_request(db,request_data,current_user):
-    disaster=db.query(Disaster).filter(
-        Disaster.id==request_data.disaster_id
+def _validate_active_disaster(db: Session, disaster_id: int) -> Disaster:
+    disaster = db.query(Disaster).filter(
+        Disaster.id == disaster_id
     ).first()
-    if disaster is None and db.query(Disaster).first() is not None:
+    if disaster is None:
         raise ValueError("Selected disaster does not exist")
+    if str(disaster.status).lower() != "active":
+        raise ValueError("Selected disaster is not active")
+    return disaster
 
-    new_request=ReliefRequest(
+
+def create_relief_request(db, request_data, current_user):
+    _validate_active_disaster(db, request_data.disaster_id)
+
+    new_request = ReliefRequest(
         victim_id=current_user["user_id"],
         disaster_id=request_data.disaster_id,
         request_type=request_data.request_type,
@@ -54,24 +61,20 @@ def create_relief_request(db,request_data,current_user):
     return new_request
 
 
-def create_assisted_relief_request(db,request_data):
-    victim=db.query(User).filter(
-        User.id==request_data.victim_id
+def create_assisted_relief_request(db, request_data):
+    victim = db.query(User).filter(
+        User.id == request_data.victim_id
     ).first()
 
     if victim is None:
         raise ValueError("Victim not found")
 
-    if victim.role!="victim":
+    if victim.role != "victim":
         raise ValueError("Selected user is not a victim")
 
-    disaster=db.query(Disaster).filter(
-        Disaster.id==request_data.disaster_id
-    ).first()
-    if disaster is None and db.query(Disaster).first() is not None:
-        raise ValueError("Selected disaster does not exist")
+    _validate_active_disaster(db, request_data.disaster_id)
 
-    new_request=ReliefRequest(
+    new_request = ReliefRequest(
         victim_id=request_data.victim_id,
         disaster_id=request_data.disaster_id,
         request_type=request_data.request_type,
@@ -101,14 +104,10 @@ def create_assisted_relief_request(db,request_data):
     return new_request
 
 
-def create_guest_relief_request(db,request_data):
-    disaster=db.query(Disaster).filter(
-        Disaster.id==request_data.disaster_id
-    ).first()
-    if disaster is None and db.query(Disaster).first() is not None:
-        raise ValueError("Selected disaster does not exist")
+def create_guest_relief_request(db, request_data):
+    _validate_active_disaster(db, request_data.disaster_id)
 
-    new_request=ReliefRequest(
+    new_request = ReliefRequest(
         victim_id=None,
         disaster_id=request_data.disaster_id,
         request_type=request_data.request_type,
@@ -136,6 +135,7 @@ def create_guest_relief_request(db,request_data):
     )
 
     return new_request
+
 
 
 def get_my_relief_requests(db,current_user):

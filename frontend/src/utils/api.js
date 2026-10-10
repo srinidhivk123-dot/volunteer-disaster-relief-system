@@ -115,13 +115,20 @@ export async function request(path, options = {}) {
 
 export const api = {
   // Auth
-  login: (email, password, role = null) => {
-    const endpoint = role ? `/auth/login/${role}` : "/auth/login";
-    return request(endpoint, { method: "POST", body: { email, password } });
+  login: async (email, password, role = null) => {
+    try {
+      const endpoint = role ? `/auth/login/${role}` : "/auth/login";
+      return await request(endpoint, { method: "POST", body: { email, password } });
+    } catch (err) {
+      if (err.status === 404 && role) {
+        return await request("/auth/login", { method: "POST", body: { email, password } });
+      }
+      throw err;
+    }
   },
-  loginVictim: (email, password) => request("/auth/login/victim", { method: "POST", body: { email, password } }),
-  loginVolunteer: (email, password) => request("/auth/login/volunteer", { method: "POST", body: { email, password } }),
-  loginAdmin: (email, password) => request("/auth/login/admin", { method: "POST", body: { email, password } }),
+  loginVictim: (email, password) => api.login(email, password, "victim"),
+  loginVolunteer: (email, password) => api.login(email, password, "volunteer"),
+  loginAdmin: (email, password) => api.login(email, password, "admin"),
   register: (name, email, password, role = "victim") => request("/auth/register", { method: "POST", body: { name, email, password, role } }),
   registerVolunteer: (payload) => request("/auth/register/volunteer", { method: "POST", body: payload }),
   getMe: () => request("/auth/me"),

@@ -19,7 +19,8 @@ def create_disaster(
     db: Session,
     disaster_data: DisasterCreate
 ):
-    if disaster_data.status not in ALLOWED_STATUSES:
+    status = (disaster_data.status or "active").lower()
+    if status not in ALLOWED_STATUSES:
         raise ValueError("Invalid disaster status")
 
     new_disaster = Disaster(
@@ -27,7 +28,7 @@ def create_disaster(
         disaster_type=disaster_data.disaster_type,
         description=disaster_data.description,
         location=disaster_data.location,
-        status=disaster_data.status
+        status=status
     )
 
     db.add(new_disaster)
@@ -53,11 +54,12 @@ def get_active_disasters(
     return (
         db.query(Disaster)
         .filter(
-            Disaster.status == "active"
+            Disaster.status.in_(["active", "ACTIVE"])
         )
         .order_by(Disaster.id.desc())
         .all()
     )
+
 
 
 def get_disaster_by_id(
@@ -89,18 +91,20 @@ def update_disaster(
     if disaster is None:
         return None
 
-    if (
-        disaster_data.status is not None
-        and disaster_data.status not in ALLOWED_STATUSES
-    ):
-        raise ValueError("Invalid disaster status")
+    if disaster_data.status is not None:
+        lowered_status = disaster_data.status.lower()
+        if lowered_status not in ALLOWED_STATUSES:
+            raise ValueError("Invalid disaster status")
 
     update_data = disaster_data.model_dump(
         exclude_unset=True
     )
+    if "status" in update_data and update_data["status"] is not None:
+        update_data["status"] = str(update_data["status"]).lower()
 
     for field, value in update_data.items():
         setattr(disaster, field, value)
+
 
     db.commit()
     db.refresh(disaster)

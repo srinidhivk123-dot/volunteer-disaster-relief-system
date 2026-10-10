@@ -36,11 +36,12 @@ function Dashboard() {
         setRequests(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Failed to load requests:", err);
-        setErrorMsg("Unable to load your relief requests from the server.");
+        setErrorMsg(err.message || "Unable to load your relief requests from the server. Please check your connection or try again later.");
       } finally {
         setLoading(false);
       }
     }
+
 
     fetchMyRequests();
   }, [navigate, user]);

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
+from app.core.database import SessionLocal, get_db
 from app.core.dependencies import require_role
 from app.schemas.assignment import (
     AssignmentCreate,
@@ -21,13 +21,6 @@ router = APIRouter(
     tags=["Assignments"]
 )
 
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @router.post(

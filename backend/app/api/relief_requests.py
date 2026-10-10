@@ -1,7 +1,7 @@
 from fastapi import APIRouter,Depends,HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
+from app.core.database import SessionLocal, get_db
 from app.core.dependencies import (
     get_current_user,
     require_role
@@ -23,22 +23,10 @@ from app.services.relief_request_service import (
     update_relief_request_status
 )
 
-
-router=APIRouter(
+router = APIRouter(
     prefix="/relief-requests",
     tags=["Relief Requests"]
 )
-
-
-def get_db():
-    db=SessionLocal()
-
-    try:
-        yield db
-    finally:
-        db.close()
-
-
 @router.post(
     "/",
     response_model=ReliefRequestResponse

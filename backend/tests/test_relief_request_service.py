@@ -38,7 +38,21 @@ def get_test_db():
 
     Base.metadata.create_all(bind=engine)
 
-    return TestingSessionLocal()
+    session = TestingSessionLocal()
+    # Seed active disaster with id 1 so tests have valid relational foreign key
+    test_disaster = Disaster(
+        id=1,
+        name="Test Active Disaster",
+        disaster_type="flood",
+        description="Active test disaster",
+        location="Trichy",
+        status="active"
+    )
+    session.add(test_disaster)
+    session.commit()
+
+    return session
+
 
 
 class TestReliefRequestService:
@@ -990,3 +1004,53 @@ class TestReliefRequestService:
             assert str(error)=="Selected disaster does not exist"
 
         db.close()
+
+    def test_create_victim_request_inactive_disaster(self):
+        db = get_test_db()
+        inactive_disaster = Disaster(
+            id=2,
+            name="Resolved Storm",
+            disaster_type="Storm",
+            location="Madurai",
+            status="resolved"
+        )
+        db.add(inactive_disaster)
+        db.commit()
+
+        request_data = ReliefRequestCreate(
+            disaster_id=2,
+            request_type="medical",
+            description="First aid supplies",
+            location="Madurai Central",
+            priority="HIGH",
+            request_source="victim"
+        )
+        current_user = {"user_id": 10, "role": "victim"}
+
+        try:
+            create_relief_request(db, request_data, current_user)
+            assert False
+        except ValueError as error:
+            assert str(error) == "Selected disaster is not active"
+
+        db.close()
+
+    def test_create_victim_request_nonexistent_disaster(self):
+        db = get_test_db()
+        request_data = ReliefRequestCreate(
+            disaster_id=8888,
+            request_type="rescue",
+            description="Rescue boat needed",
+            location="Delta Zone",
+            priority="HIGH",
+            request_source="victim"
+        )
+        current_user = {"user_id": 10, "role": "victim"}
+
+        try:
+            create_relief_request(db, request_data, current_user)
+            assert False
+        except ValueError as error:
+            assert str(error) == "Selected disaster does not exist"
+
+        db.close()

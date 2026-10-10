@@ -317,3 +317,71 @@ class TestReliefRequestAPI:
             assert "Selected disaster does not exist" in resp.json()["detail"]
         finally:
             self.teardown_dependencies()
+
+    def test_victim_request_with_inactive_disaster_fails(self, db, client):
+        try:
+            victim = create_user(db, 35, "victim")
+            inactive_disaster = Disaster(
+                name="Past Cyclone",
+                disaster_type="cyclone",
+                description="Past event",
+                location="Kanyakumari",
+                status="resolved"
+            )
+            db.add(inactive_disaster)
+            db.commit()
+            db.refresh(inactive_disaster)
+
+            token = create_access_token({
+                "user_id": victim.id,
+                "role": victim.role
+            })
+            self.setup_dependencies(db)
+
+            resp = client.post(
+                "/relief-requests/",
+                json={
+                    "disaster_id": inactive_disaster.id,
+                    "request_type": "food",
+                    "description": "Food packets",
+                    "location": "Shore Line",
+                    "priority": "HIGH",
+                    "request_source": "victim"
+                },
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            assert resp.status_code == 400
+            assert "Selected disaster is not active" in resp.json()["detail"]
+        finally:
+            self.teardown_dependencies()
+
+    def test_guest_request_with_inactive_disaster_fails(self, db, client):
+        try:
+            inactive_disaster = Disaster(
+                name="Inactive Drought",
+                disaster_type="drought",
+                description="Past drought",
+                location="Salem",
+                status="closed"
+            )
+            db.add(inactive_disaster)
+            db.commit()
+            db.refresh(inactive_disaster)
+
+            self.setup_dependencies(db)
+
+            resp = client.post(
+                "/relief-requests/guest",
+                json={
+                    "disaster_id": inactive_disaster.id,
+                    "request_type": "water",
+                    "description": "Drinking water supply",
+                    "location": "North Salem",
+                    "priority": "HIGH",
+                    "phone": "9876543210"
+                }
+            )
+            assert resp.status_code == 400
+            assert "Selected disaster is not active" in resp.json()["detail"]
+        finally:
+            self.teardown_dependencies()

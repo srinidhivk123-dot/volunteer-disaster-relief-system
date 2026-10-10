@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 
-from app.core.security import SECRET_KEY, ALGORITHM
+from app.core import security as sec_core
 
 security = HTTPBearer()
 
@@ -15,8 +15,8 @@ def get_current_user(
     try:
         payload = jwt.decode(
             token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM]
+            sec_core.SECRET_KEY,
+            algorithms=[sec_core.ALGORITHM]
         )
 
         user_id = payload.get("user_id")
