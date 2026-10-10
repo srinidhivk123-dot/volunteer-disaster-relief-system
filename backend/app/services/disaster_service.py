@@ -10,7 +10,8 @@ from app.schemas.disaster import (
 ALLOWED_STATUSES = {
     "active",
     "inactive",
-    "closed"
+    "closed",
+    "resolved"
 }
 
 

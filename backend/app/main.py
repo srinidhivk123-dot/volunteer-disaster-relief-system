@@ -81,7 +81,58 @@ def seed_default_roles():
         logger.warning("Seed roles notice: %s", e)
 
 
+def ensure_schema_compatibility():
+    try:
+        from sqlalchemy import inspect as sa_inspect, text
+        inspector = sa_inspect(engine)
+        tables = inspector.get_table_names()
+        if "relief_requests" in tables:
+            cols = [c["name"].lower() for c in inspector.get_columns("relief_requests")]
+            with engine.connect() as conn:
+                if "latitude" not in cols:
+                    conn.execute(text("ALTER TABLE relief_requests ADD COLUMN latitude FLOAT NULL"))
+                    conn.commit()
+                if "longitude" not in cols:
+                    conn.execute(text("ALTER TABLE relief_requests ADD COLUMN longitude FLOAT NULL"))
+                    conn.commit()
+                if "phone" not in cols:
+                    conn.execute(text("ALTER TABLE relief_requests ADD COLUMN phone VARCHAR(15) NULL"))
+                    conn.commit()
+                if "request_source" not in cols:
+                    conn.execute(text("ALTER TABLE relief_requests ADD COLUMN request_source VARCHAR(30) NOT NULL DEFAULT 'victim'"))
+                    conn.commit()
+    except Exception as e:
+        logger.warning("Schema compatibility notice: %s", e)
+
+
+def seed_default_disaster():
+    try:
+        from app.core.database import SessionLocal
+        from app.models.disaster import Disaster
+        with SessionLocal() as db:
+            active = db.query(Disaster).filter(Disaster.status == "active").first()
+            if not active:
+                existing = db.query(Disaster).first()
+                if existing:
+                    existing.status = "active"
+                    db.commit()
+                else:
+                    initial = Disaster(
+                        name="Monsoon Flood Relief Operation 2026",
+                        disaster_type="Flood",
+                        description="Active regional flood emergency relief and volunteer dispatch operation.",
+                        location="Trichy Central District",
+                        status="active"
+                    )
+                    db.add(initial)
+                    db.commit()
+    except Exception as e:
+        logger.warning("Seed disaster notice: %s", e)
+
+
+ensure_schema_compatibility()
 seed_default_roles()
+seed_default_disaster()
 
 
 cors_origins=[o.strip().rstrip("/") for o in os.getenv(
