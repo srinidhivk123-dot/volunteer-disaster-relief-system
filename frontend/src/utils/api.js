@@ -115,6 +115,9 @@ export const api = {
   getActiveDisasters: () => request("/disasters/active"),
   getAllDisasters: () => request("/disasters/"),
   getDisaster: (id) => request(`/disasters/${id}`),
+  createDisaster: (payload) => request("/disasters/", { method: "POST", body: payload }),
+  updateDisaster: (id, payload) => request(`/disasters/${id}`, { method: "PUT", body: payload }),
+  deleteDisaster: (id) => request(`/disasters/${id}`, { method: "DELETE" }),
 
   // Relief Requests
   createGuestRequest: (payload) => request("/relief-requests/guest", { method: "POST", body: payload }),

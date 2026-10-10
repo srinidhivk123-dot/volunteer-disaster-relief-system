@@ -20,6 +20,18 @@ function AdminDashboard() {
   const [loadingNearby, setLoadingNearby] = useState({});
   const [assigningRequest, setAssigningRequest] = useState(null);
 
+  // Disaster management states
+  const [showDisasterModal, setShowDisasterModal] = useState(false);
+  const [disasterForm, setDisasterForm] = useState({
+    name: "",
+    disaster_type: "flood",
+    location: "",
+    description: "",
+    status: "active",
+  });
+  const [submittingDisaster, setSubmittingDisaster] = useState(false);
+  const [actionLoadingDisasterId, setActionLoadingDisasterId] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -148,6 +160,84 @@ function AdminDashboard() {
       setErrorMessage(err.message || "Failed to assign volunteer.");
     } finally {
       setAssigningRequest(null);
+    }
+  };
+
+  const handleCreateDisaster = async (e) => {
+    e.preventDefault();
+    if (!disasterForm.name.trim() || !disasterForm.location.trim()) {
+      setErrorMessage("Disaster incident name and location are required.");
+      return;
+    }
+
+    setSubmittingDisaster(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      const created = await api.createDisaster({
+        name: disasterForm.name.trim(),
+        disaster_type: disasterForm.disaster_type,
+        location: disasterForm.location.trim(),
+        description: disasterForm.description.trim() || null,
+        status: disasterForm.status,
+      });
+
+      setSuccessMessage(`Disaster incident "${created.name}" (#${created.id}) successfully cataloged.`);
+      setDisasterForm({
+        name: "",
+        disaster_type: "flood",
+        location: "",
+        description: "",
+        status: "active",
+      });
+      setShowDisasterModal(false);
+      await loadAdminData();
+    } catch (err) {
+      console.error("Disaster creation failed:", err);
+      setErrorMessage(err.message || "Failed to catalog disaster incident.");
+    } finally {
+      setSubmittingDisaster(false);
+    }
+  };
+
+  const handleToggleDisasterStatus = async (disaster) => {
+    setActionLoadingDisasterId(disaster.id);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    const newStatus = disaster.status?.toLowerCase() === "active" ? "resolved" : "active";
+
+    try {
+      await api.updateDisaster(disaster.id, { status: newStatus });
+      setSuccessMessage(`Incident #${disaster.id} status updated to ${newStatus}.`);
+      await loadAdminData();
+    } catch (err) {
+      console.error("Disaster status update failed:", err);
+      setErrorMessage(err.message || "Failed to update disaster status.");
+    } finally {
+      setActionLoadingDisasterId(null);
+    }
+  };
+
+  const handleDeleteDisaster = async (disasterId) => {
+    if (!window.confirm(`Are you sure you want to delete Disaster Incident #${disasterId}? Note that any requests linked to this incident may be affected.`)) {
+      return;
+    }
+
+    setActionLoadingDisasterId(disasterId);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      await api.deleteDisaster(disasterId);
+      setSuccessMessage(`Disaster incident #${disasterId} deleted successfully.`);
+      await loadAdminData();
+    } catch (err) {
+      console.error("Disaster deletion failed:", err);
+      setErrorMessage(err.message || "Failed to delete disaster incident.");
+    } finally {
+      setActionLoadingDisasterId(null);
     }
   };
 
@@ -591,10 +681,21 @@ function AdminDashboard() {
           {/* TAB 4: Disasters */}
           {activeTab === "disasters" && (
             <section className="dashboard-card">
-              <h2>Disaster Incidents Registry</h2>
-              <p className="text-muted" style={{ marginBottom: "16px" }}>
-                Active and archived disaster events cataloged in the system.
-              </p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
+                <div>
+                  <h2>Disaster Incidents Registry</h2>
+                  <p className="text-muted" style={{ margin: 0 }}>
+                    Active and archived disaster events cataloged in the system.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="rc-btn rc-btn-primary"
+                  onClick={() => setShowDisasterModal(true)}
+                >
+                  + Declare New Disaster
+                </button>
+              </div>
 
               {disasters.length === 0 ? (
                 <div className="empty-state">
@@ -611,6 +712,7 @@ function AdminDashboard() {
                         <th>Location</th>
                         <th>Status</th>
                         <th>Description</th>
+                        <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -624,6 +726,26 @@ function AdminDashboard() {
                             <StatusBadge status={d.status} />
                           </td>
                           <td>{d.description || "—"}</td>
+                          <td>
+                            <div style={{ display: "flex", gap: "6px" }}>
+                              <button
+                                type="button"
+                                className="rc-btn rc-btn-outline rc-btn-sm"
+                                disabled={actionLoadingDisasterId === d.id}
+                                onClick={() => handleToggleDisasterStatus(d)}
+                              >
+                                {d.status === "active" ? "Mark Resolved" : "Reactivate"}
+                              </button>
+                              <button
+                                type="button"
+                                className="rc-btn rc-btn-outline-danger rc-btn-sm"
+                                disabled={actionLoadingDisasterId === d.id}
+                                onClick={() => handleDeleteDisaster(d.id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -634,6 +756,114 @@ function AdminDashboard() {
           )}
         </div>
       </main>
+
+      {/* Modal: Declare New Disaster */}
+      {showDisasterModal && (
+        <div className="rc-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+          <div className="rc-modal-card">
+            <div className="rc-modal-header">
+              <h3 id="modal-title">Declare Disaster Incident</h3>
+              <button
+                type="button"
+                className="rc-modal-close-btn"
+                onClick={() => setShowDisasterModal(false)}
+                aria-label="Close dialog"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateDisaster}>
+              <div className="rc-modal-body">
+                <div className="rc-form-group">
+                  <label htmlFor="disaster-name">Incident Name *</label>
+                  <input
+                    id="disaster-name"
+                    type="text"
+                    required
+                    placeholder="e.g. Kerala Monsoon Floods 2026"
+                    value={disasterForm.name}
+                    onChange={(e) => setDisasterForm({ ...disasterForm, name: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-row">
+                  <div className="rc-form-group">
+                    <label htmlFor="disaster-type">Disaster Category *</label>
+                    <select
+                      id="disaster-type"
+                      required
+                      value={disasterForm.disaster_type}
+                      onChange={(e) => setDisasterForm({ ...disasterForm, disaster_type: e.target.value })}
+                    >
+                      <option value="flood">Flood</option>
+                      <option value="earthquake">Earthquake</option>
+                      <option value="cyclone">Cyclone / Storm</option>
+                      <option value="landslide">Landslide</option>
+                      <option value="fire">Fire Outbreak</option>
+                      <option value="tsunami">Tsunami</option>
+                      <option value="other">Other Incident</option>
+                    </select>
+                  </div>
+
+                  <div className="rc-form-group">
+                    <label htmlFor="disaster-status">Initial Status</label>
+                    <select
+                      id="disaster-status"
+                      value={disasterForm.status}
+                      onChange={(e) => setDisasterForm({ ...disasterForm, status: e.target.value })}
+                    >
+                      <option value="active">Active (Accepting Relief Requests)</option>
+                      <option value="resolved">Resolved</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="rc-form-group">
+                  <label htmlFor="disaster-location">Primary Location / Region *</label>
+                  <input
+                    id="disaster-location"
+                    type="text"
+                    required
+                    placeholder="e.g. Wayanad District, Kerala"
+                    value={disasterForm.location}
+                    onChange={(e) => setDisasterForm({ ...disasterForm, location: e.target.value })}
+                  />
+                </div>
+
+                <div className="rc-form-group">
+                  <label htmlFor="disaster-desc">Incident Description & Advisories</label>
+                  <textarea
+                    id="disaster-desc"
+                    rows="3"
+                    placeholder="Official advisories, impacted zones, and response instructions..."
+                    value={disasterForm.description}
+                    onChange={(e) => setDisasterForm({ ...disasterForm, description: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="rc-modal-footer">
+                <button
+                  type="button"
+                  className="rc-btn rc-btn-outline"
+                  onClick={() => setShowDisasterModal(false)}
+                  disabled={submittingDisaster}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rc-btn rc-btn-primary"
+                  disabled={submittingDisaster}
+                >
+                  {submittingDisaster ? "Cataloging Incident..." : "Declare Incident"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

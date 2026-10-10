@@ -91,6 +91,15 @@
   background-color: var(--teal-light);
 }
 
+.rc-btn-outline-danger {
+  background-color: transparent;
+  border-color: var(--critical);
+  color: var(--critical);
+}
+.rc-btn-outline-danger:hover:not(:disabled) {
+  background-color: var(--critical-light);
+}
+
 .rc-btn-sm {
   padding: 6px 12px;
   font-size: 13px;
@@ -1005,4 +1014,76 @@
   .request-card {
     padding: 24px 18px;
   }
+}
+
+/* --------------------------------------------------------------------------
+   10. Accessible Modal Dialogs
+   -------------------------------------------------------------------------- */
+.rc-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 16px;
+}
+
+.rc-modal-card {
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+}
+
+.rc-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.rc-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--navy);
+}
+
+.rc-modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.rc-modal-close-btn:hover {
+  color: var(--navy);
+}
+
+.rc-modal-body {
+  padding: 24px;
+}
+
+.rc-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background-color: #F8FAFC;
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
 }
