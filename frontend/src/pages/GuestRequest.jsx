@@ -182,7 +182,7 @@ function GuestRequest() {
                 </div>
               ) : disasters.length === 0 ? (
                 <Alert type="warning">
-                  There are currently no active disasters registered in the cloud database. Requests must be associated with an active declared disaster event. Please check back later or contact administration.
+                  <strong>No Active Disasters Declared:</strong> There are currently no active disaster events registered in the system. All emergency requests must be associated with an active declared disaster event. If you are an administrator, please sign in to the Admin Operations Console to declare an active disaster incident. Otherwise, please check back shortly or contact local emergency services.
                 </Alert>
               ) : (
                 <div className="rc-form-group">

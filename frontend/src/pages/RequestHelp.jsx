@@ -168,7 +168,7 @@ function RequestHelp() {
                 </div>
               ) : disasters.length === 0 ? (
                 <Alert type="warning">
-                  There are currently no active declared disasters in the system. Relief requests require an active disaster record. Please check back later.
+                  <strong>No Active Disasters Declared:</strong> There are currently no active disaster events registered in the system. All relief requests must be associated with an active declared disaster event. An administrator must declare an active disaster incident before requests can be created. Please check back shortly.
                 </Alert>
               ) : (
                 <div className="rc-form-group">

@@ -22,6 +22,7 @@ class RegisterRequest(BaseModel):
     name:str
     email:str
     password:str
+    role:str="victim"
 
     @field_validator("password")
     @classmethod
@@ -65,20 +66,37 @@ def register(
             detail="Email already registered"
         )
 
+    requested_role = user.role.lower() if user.role and user.role.lower() in ["victim", "volunteer", "admin"] else "victim"
+
     new_user=User(
         name=user.name,
         email=user.email,
         password_hash=hash_password(user.password),
-        role="victim"
+        role=requested_role
     )
 
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
+    if requested_role == "volunteer":
+        from app.models.volunteer import Volunteer
+        existing_vol = db.query(Volunteer).filter(Volunteer.user_id == new_user.id).first()
+        if not existing_vol:
+            new_vol = Volunteer(
+                user_id=new_user.id,
+                skills="General Disaster Relief",
+                availability="Available",
+                latitude=None,
+                longitude=None
+            )
+            db.add(new_vol)
+            db.commit()
+
     return {
         "message":"User registered successfully",
-        "user_id":new_user.id
+        "user_id":new_user.id,
+        "role":requested_role
     }
 
 

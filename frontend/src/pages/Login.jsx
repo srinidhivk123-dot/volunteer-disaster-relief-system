@@ -16,6 +16,7 @@ function Login() {
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [regRole, setRegRole] = useState("victim");
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -89,8 +90,8 @@ function Login() {
     setLoading(true);
 
     try {
-      await api.register(name.trim(), regEmail.trim(), regPassword);
-      setSuccessMsg("Account created successfully! Please sign in with your credentials.");
+      await api.register(name.trim(), regEmail.trim(), regPassword, regRole);
+      setSuccessMsg(`Account created successfully as ${regRole}! Please sign in with your credentials.`);
       setActiveTab("login");
       setEmail(regEmail.trim());
       setPassword("");
@@ -201,6 +202,20 @@ function Login() {
                   disabled={loading}
                   required
                 />
+              </div>
+
+              <div className="rc-form-group">
+                <label htmlFor="reg-role">Account Type & Role</label>
+                <select
+                  id="reg-role"
+                  value={regRole}
+                  onChange={(e) => setRegRole(e.target.value)}
+                  disabled={loading}
+                >
+                  <option value="victim">Disaster Victim (Request Relief & Track Status)</option>
+                  <option value="volunteer">Relief Volunteer (Respond & Accept Dispatches)</option>
+                  <option value="admin">System Administrator (Command Center & Dispatch)</option>
+                </select>
               </div>
 
               <div className="rc-form-group">

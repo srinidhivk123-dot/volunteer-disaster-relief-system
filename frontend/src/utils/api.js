@@ -108,7 +108,7 @@ export async function request(path, options = {}) {
 export const api = {
   // Auth
   login: (email, password) => request("/auth/login", { method: "POST", body: { email, password } }),
-  register: (name, email, password) => request("/auth/register", { method: "POST", body: { name, email, password } }),
+  register: (name, email, password, role = "victim") => request("/auth/register", { method: "POST", body: { name, email, password, role } }),
   getMe: () => request("/auth/me"),
 
   // Disasters
@@ -130,6 +130,7 @@ export const api = {
 
   // Volunteers
   getMyVolunteerProfile: () => request("/volunteers/me"),
+  createVolunteerProfile: (payload) => request("/volunteers/", { method: "POST", body: payload }),
   updateMyVolunteerProfile: (payload) => request("/volunteers/me", { method: "PUT", body: payload }),
   getAllVolunteers: () => request("/volunteers/"),
   getNearbyVolunteers: (requestId) => request(`/volunteers/nearby/${requestId}`),
