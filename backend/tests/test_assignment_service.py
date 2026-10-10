@@ -699,3 +699,213 @@ class TestAssignmentService:
             assert str(error)=="Invalid assignment status transition"
 
         db.close()
+    def test_declined_assignment_can_be_reassigned(self):
+        db=get_test_db()
+
+        volunteer1=Volunteer(
+            user_id=4,
+            skills="First Aid",
+            availability="Available"
+        )
+
+        volunteer2=Volunteer(
+            user_id=6,
+            skills="Rescue",
+            availability="Available"
+        )
+
+        relief_request=ReliefRequest(
+            victim_id=5,
+            disaster_id=1,
+            request_type="food",
+            description="Need food",
+            location="Trichy",
+            priority="HIGH",
+            request_source="victim",
+            status="pending"
+        )
+
+        db.add_all([
+            volunteer1,
+            volunteer2,
+            relief_request
+        ])
+        db.commit()
+
+        db.refresh(volunteer1)
+        db.refresh(volunteer2)
+        db.refresh(relief_request)
+
+        old_assignment=Assignment(
+            relief_request_id=relief_request.id,
+            volunteer_id=volunteer1.id,
+            status="declined"
+        )
+
+        db.add(old_assignment)
+        db.commit()
+        db.refresh(old_assignment)
+
+        assignment_data=AssignmentCreate(
+            relief_request_id=relief_request.id,
+            volunteer_id=volunteer2.id
+        )
+
+        result=create_assignment(
+            db,
+            assignment_data
+        )
+
+        assert result is not None
+        assert result.volunteer_id==volunteer2.id
+        assert result.status=="assigned"
+
+        db.refresh(relief_request)
+
+        assert relief_request.status=="assigned"
+
+        db.close()
+
+
+    def test_reassignment_keeps_old_declined_assignment(self):
+        db=get_test_db()
+
+        volunteer1=Volunteer(
+            user_id=4,
+            skills="First Aid",
+            availability="Available"
+        )
+
+        volunteer2=Volunteer(
+            user_id=6,
+            skills="Rescue",
+            availability="Available"
+        )
+
+        relief_request=ReliefRequest(
+            victim_id=5,
+            disaster_id=1,
+            request_type="food",
+            description="Need food",
+            location="Trichy",
+            priority="HIGH",
+            request_source="victim",
+            status="pending"
+        )
+
+        db.add_all([
+            volunteer1,
+            volunteer2,
+            relief_request
+        ])
+        db.commit()
+
+        db.refresh(volunteer1)
+        db.refresh(volunteer2)
+        db.refresh(relief_request)
+
+        old_assignment=Assignment(
+            relief_request_id=relief_request.id,
+            volunteer_id=volunteer1.id,
+            status="declined"
+        )
+
+        db.add(old_assignment)
+        db.commit()
+        db.refresh(old_assignment)
+
+        assignment_data=AssignmentCreate(
+            relief_request_id=relief_request.id,
+            volunteer_id=volunteer2.id
+        )
+
+        new_assignment=create_assignment(
+            db,
+            assignment_data
+        )
+
+        db.refresh(old_assignment)
+
+        assert old_assignment.status=="declined"
+        assert old_assignment.volunteer_id==volunteer1.id
+
+        assert new_assignment.id!=old_assignment.id
+        assert new_assignment.volunteer_id==volunteer2.id
+        assert new_assignment.status=="assigned"
+
+        assignments=(
+            db.query(Assignment)
+            .filter(
+                Assignment.relief_request_id
+                ==relief_request.id
+            )
+            .order_by(Assignment.id.asc())
+            .all()
+        )
+
+        assert len(assignments)==2
+
+        db.close()
+
+
+    def test_active_assignment_cannot_be_reassigned(self):
+        db=get_test_db()
+
+        volunteer1=Volunteer(
+            user_id=4,
+            skills="First Aid",
+            availability="Available"
+        )
+
+        volunteer2=Volunteer(
+            user_id=6,
+            skills="Rescue",
+            availability="Available"
+        )
+
+        relief_request=ReliefRequest(
+            victim_id=5,
+            disaster_id=1,
+            request_type="food",
+            description="Need food",
+            location="Trichy",
+            priority="HIGH",
+            request_source="victim",
+            status="assigned"
+        )
+
+        db.add_all([
+            volunteer1,
+            volunteer2,
+            relief_request
+        ])
+        db.commit()
+
+        db.refresh(volunteer1)
+        db.refresh(volunteer2)
+        db.refresh(relief_request)
+
+        existing_assignment=Assignment(
+            relief_request_id=relief_request.id,
+            volunteer_id=volunteer1.id,
+            status="assigned"
+        )
+
+        db.add(existing_assignment)
+        db.commit()
+
+        assignment_data=AssignmentCreate(
+            relief_request_id=relief_request.id,
+            volunteer_id=volunteer2.id
+        )
+
+        try:
+            create_assignment(
+                db,
+                assignment_data
+            )
+            assert False
+        except ValueError as error:
+            assert str(error)=="Relief request already assigned"
+
+        db.close()

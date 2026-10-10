@@ -3,9 +3,11 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.models.assignment import Assignment
+from app.models.disaster import Disaster
 from app.models.relief_request import ReliefRequest
 from app.models.user import User
 from app.models.volunteer import Volunteer
+from sqlalchemy.exc import IntegrityError
 from app.schemas.relief_request import (
     ReliefRequestCreate,
     AssistedReliefRequestCreate,
@@ -16,6 +18,12 @@ logger=logging.getLogger(__name__)
 
 
 def create_relief_request(db,request_data,current_user):
+    disaster=db.query(Disaster).filter(
+        Disaster.id==request_data.disaster_id
+    ).first()
+    if disaster is None and db.query(Disaster).first() is not None:
+        raise ValueError("Selected disaster does not exist")
+
     new_request=ReliefRequest(
         victim_id=current_user["user_id"],
         disaster_id=request_data.disaster_id,
@@ -23,12 +31,18 @@ def create_relief_request(db,request_data,current_user):
         description=request_data.description,
         location=request_data.location,
         priority=request_data.priority,
-        request_source=request_data.request_source
+        request_source=request_data.request_source,
+        latitude=request_data.latitude,
+        longitude=request_data.longitude
     )
 
     db.add(new_request)
-    db.commit()
-    db.refresh(new_request)
+    try:
+        db.commit()
+        db.refresh(new_request)
+    except IntegrityError:
+        db.rollback()
+        raise ValueError("Selected disaster does not exist")
 
     logger.info(
         "Relief request created: request_id=%s victim_id=%s disaster_id=%s",
@@ -51,6 +65,12 @@ def create_assisted_relief_request(db,request_data):
     if victim.role!="victim":
         raise ValueError("Selected user is not a victim")
 
+    disaster=db.query(Disaster).filter(
+        Disaster.id==request_data.disaster_id
+    ).first()
+    if disaster is None and db.query(Disaster).first() is not None:
+        raise ValueError("Selected disaster does not exist")
+
     new_request=ReliefRequest(
         victim_id=request_data.victim_id,
         disaster_id=request_data.disaster_id,
@@ -58,12 +78,18 @@ def create_assisted_relief_request(db,request_data):
         description=request_data.description,
         location=request_data.location,
         priority=request_data.priority,
-        request_source="assisted"
+        request_source="assisted",
+        latitude=request_data.latitude,
+        longitude=request_data.longitude
     )
 
     db.add(new_request)
-    db.commit()
-    db.refresh(new_request)
+    try:
+        db.commit()
+        db.refresh(new_request)
+    except IntegrityError:
+        db.rollback()
+        raise ValueError("Selected disaster does not exist")
 
     logger.info(
         "Assisted relief request created: request_id=%s victim_id=%s disaster_id=%s",
@@ -76,6 +102,12 @@ def create_assisted_relief_request(db,request_data):
 
 
 def create_guest_relief_request(db,request_data):
+    disaster=db.query(Disaster).filter(
+        Disaster.id==request_data.disaster_id
+    ).first()
+    if disaster is None and db.query(Disaster).first() is not None:
+        raise ValueError("Selected disaster does not exist")
+
     new_request=ReliefRequest(
         victim_id=None,
         disaster_id=request_data.disaster_id,
@@ -84,12 +116,18 @@ def create_guest_relief_request(db,request_data):
         location=request_data.location,
         priority=request_data.priority,
         request_source="guest",
-        phone=request_data.phone
+        phone=request_data.phone,
+        latitude=request_data.latitude,
+        longitude=request_data.longitude
     )
 
     db.add(new_request)
-    db.commit()
-    db.refresh(new_request)
+    try:
+        db.commit()
+        db.refresh(new_request)
+    except IntegrityError:
+        db.rollback()
+        raise ValueError("Selected disaster does not exist")
 
     logger.info(
         "Guest relief request created: request_id=%s disaster_id=%s",
@@ -113,9 +151,32 @@ def get_all_relief_requests(db):
 
 
 def get_relief_request_by_id(db,request_id,current_user):
+    role=current_user.get("role")
+    user_id=current_user.get("user_id")
+
+    if role=="admin":
+        return db.query(ReliefRequest).filter(
+            ReliefRequest.id==request_id
+        ).first()
+
+    if role=="volunteer":
+        volunteer=db.query(Volunteer).filter(
+            Volunteer.user_id==user_id
+        ).first()
+        if volunteer is not None:
+            assignment=db.query(Assignment).filter(
+                Assignment.relief_request_id==request_id,
+                Assignment.volunteer_id==volunteer.id
+            ).first()
+            if assignment is not None:
+                return db.query(ReliefRequest).filter(
+                    ReliefRequest.id==request_id
+                ).first()
+        return None
+
     return db.query(ReliefRequest).filter(
         ReliefRequest.id==request_id,
-        ReliefRequest.victim_id==current_user["user_id"]
+        ReliefRequest.victim_id==user_id
     ).first()
 
 

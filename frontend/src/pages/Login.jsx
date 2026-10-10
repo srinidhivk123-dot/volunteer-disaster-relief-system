@@ -1,136 +1,271 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "../App.css";
+import Navbar from "../components/Navbar";
+import Alert from "../components/Alert";
+import { api, setAuthToken, getStoredUser } from "../utils/api";
 
 function Login() {
+  const [activeTab, setActiveTab] = useState("login"); // "login" | "register"
+  
+  // Login form state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+  
+  // Registration form state
+  const [name, setName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setMessage("Logging in...");
+    if (loading) return;
+
+    setErrorMsg("");
+    setSuccessMsg("");
+    setLoading(true);
 
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/auth/login",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: email,
-            password: password,
-          }),
-        }
-      );
+      const data = await api.login(email.trim(), password);
+      setAuthToken(data.access_token);
 
-      const data = await response.json();
+      const user = getStoredUser();
+      const role = user?.role || "victim";
 
-      if (!response.ok) {
-        setMessage(data.detail || "Login failed");
-        return;
-      }
-
-      localStorage.setItem(
-        "access_token",
-        data.access_token
-      );
-
-      // Decode JWT payload to identify the user's role.
-      const payload = JSON.parse(
-        atob(data.access_token.split(".")[1])
-      );
-
-      const role = payload.role;
-
-      setMessage("Login successful!");
+      setSuccessMsg("Authentication successful! Redirecting to dashboard...");
 
       setTimeout(() => {
         if (role === "admin") {
-          navigate("/admin-dashboard");
+          navigate("/admin-dashboard", { replace: true });
         } else if (role === "volunteer") {
-          navigate("/volunteer-dashboard");
+          navigate("/volunteer-dashboard", { replace: true });
         } else {
-          navigate("/dashboard");
+          navigate("/dashboard", { replace: true });
         }
       }, 500);
+    } catch (err) {
+      console.error("Login failure:", err);
+      setErrorMsg(err.message || "Invalid email or password.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    } catch (error) {
-      console.error(error);
-      setMessage("Cannot connect to the backend.");
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    if (loading) return;
+
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    // Password validation matching backend requirements
+    if (regPassword.length < 8) {
+      setErrorMsg("Password must be at least 8 characters long.");
+      return;
+    }
+    if (!/[A-Z]/.test(regPassword)) {
+      setErrorMsg("Password must contain at least one uppercase letter.");
+      return;
+    }
+    if (!/[a-z]/.test(regPassword)) {
+      setErrorMsg("Password must contain at least one lowercase letter.");
+      return;
+    }
+    if (!/[0-9]/.test(regPassword)) {
+      setErrorMsg("Password must contain at least one digit.");
+      return;
+    }
+    if (regPassword !== confirmPassword) {
+      setErrorMsg("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await api.register(name.trim(), regEmail.trim(), regPassword);
+      setSuccessMsg("Account created successfully! Please sign in with your credentials.");
+      setActiveTab("login");
+      setEmail(regEmail.trim());
+      setPassword("");
+      setName("");
+      setRegEmail("");
+      setRegPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      console.error("Registration error:", err);
+      setErrorMsg(err.message || "Registration failed. Please check the provided information.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="login-page">
+    <div className="login-page-wrapper">
+      <Navbar />
 
-      <div className="login-card">
-
-        <div className="login-icon">🚨</div>
-
-        <h1>Welcome Back</h1>
-
-        <p className="login-subtitle">
-          Login to ReliefConnect
-        </p>
-
-        <form onSubmit={handleLogin}>
-
-          <div className="form-group">
-            <label>Email</label>
-
-            <input
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) =>
-                setEmail(e.target.value)
-              }
-              required
-            />
+      <div className="login-page">
+        <div className="login-card">
+          <div className="login-card-header">
+            <div className="icon">🚨</div>
+            <h1>{activeTab === "login" ? "Welcome Back" : "Create Account"}</h1>
+            <p>
+              {activeTab === "login"
+                ? "Sign in to coordinate relief or track assistance"
+                : "Register as a relief recipient or community member"}
+            </p>
           </div>
 
-          <div className="form-group">
-            <label>Password</label>
-
-            <input
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) =>
-                setPassword(e.target.value)
-              }
-              required
-            />
+          <div className="auth-tabs">
+            <button
+              type="button"
+              className={`auth-tab-btn ${activeTab === "login" ? "active" : ""}`}
+              onClick={() => {
+                setActiveTab("login");
+                setErrorMsg("");
+                setSuccessMsg("");
+              }}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              className={`auth-tab-btn ${activeTab === "register" ? "active" : ""}`}
+              onClick={() => {
+                setActiveTab("register");
+                setErrorMsg("");
+                setSuccessMsg("");
+              }}
+            >
+              Register
+            </button>
           </div>
 
-          <button
-            className="login-submit"
-            type="submit"
-          >
-            Login
-          </button>
+          {errorMsg && <Alert type="error" message={errorMsg} onClose={() => setErrorMsg("")} />}
+          {successMsg && <Alert type="success" message={successMsg} />}
 
-        </form>
+          {activeTab === "login" ? (
+            <form onSubmit={handleLogin}>
+              <div className="rc-form-group">
+                <label htmlFor="login-email">Email Address</label>
+                <input
+                  id="login-email"
+                  type="email"
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading}
+                  required
+                  autoFocus
+                />
+              </div>
 
-        {message && (
-          <p className="login-message">
-            {message}
-          </p>
-        )}
+              <div className="rc-form-group">
+                <label htmlFor="login-password">Password</label>
+                <input
+                  id="login-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
 
-        <p className="back-home">
-          <button onClick={() => navigate("/")}>
-            ← Back to Home
-          </button>
-        </p>
+              <button
+                type="submit"
+                className="rc-btn rc-btn-primary"
+                style={{ width: "100%", marginTop: "12px" }}
+                disabled={loading}
+              >
+                {loading ? "Authenticating..." : "Sign In to ReliefConnect"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleRegister}>
+              <div className="rc-form-group">
+                <label htmlFor="reg-name">Full Name</label>
+                <input
+                  id="reg-name"
+                  type="text"
+                  placeholder="Your full name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
 
+              <div className="rc-form-group">
+                <label htmlFor="reg-email">Email Address</label>
+                <input
+                  id="reg-email"
+                  type="email"
+                  placeholder="name@example.com"
+                  value={regEmail}
+                  onChange={(e) => setRegEmail(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
+
+              <div className="rc-form-group">
+                <label htmlFor="reg-password">Password</label>
+                <input
+                  id="reg-password"
+                  type="password"
+                  placeholder="Minimum 8 chars, 1 uppercase, 1 digit"
+                  value={regPassword}
+                  onChange={(e) => setRegPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+                <small>Requires 8+ characters, uppercase, lowercase, and a number</small>
+              </div>
+
+              <div className="rc-form-group">
+                <label htmlFor="reg-confirm">Confirm Password</label>
+                <input
+                  id="reg-confirm"
+                  type="password"
+                  placeholder="Repeat your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="rc-btn rc-btn-primary"
+                style={{ width: "100%", marginTop: "12px" }}
+                disabled={loading}
+              >
+                {loading ? "Creating Account..." : "Create Account"}
+              </button>
+            </form>
+          )}
+
+          <div style={{ textAlign: "center", marginTop: "24px" }}>
+            <button
+              type="button"
+              className="rc-btn rc-btn-outline"
+              onClick={() => navigate("/")}
+              style={{ fontSize: "13px" }}
+            >
+              ← Back to Home
+            </button>
+          </div>
+        </div>
       </div>
-
     </div>
   );
 }

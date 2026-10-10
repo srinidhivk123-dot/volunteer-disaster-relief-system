@@ -69,8 +69,7 @@ def get_disasters(
     response_model=list[DisasterResponse]
 )
 def get_active(
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     return get_active_disasters(db)
 

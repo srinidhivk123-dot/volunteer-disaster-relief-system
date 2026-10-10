@@ -23,7 +23,9 @@ def create_volunteer_profile(
     new_volunteer = Volunteer(
         user_id=current_user["user_id"],
         skills=volunteer_data.skills,
-        availability=volunteer_data.availability
+        availability=volunteer_data.availability,
+        latitude=volunteer_data.latitude,
+        longitude=volunteer_data.longitude
     )
 
     db.add(new_volunteer)
@@ -72,6 +74,8 @@ def update_my_volunteer_profile(
 
     volunteer.skills = volunteer_data.skills
     volunteer.availability = volunteer_data.availability
+    volunteer.latitude = volunteer_data.latitude
+    volunteer.longitude = volunteer_data.longitude
 
     db.commit()
     db.refresh(volunteer)

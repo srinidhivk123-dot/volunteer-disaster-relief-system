@@ -8,7 +8,8 @@ class ReliefRequestCreate(BaseModel):
     location:str
     priority:str
     request_source:str
-
+    latitude:float|None=None
+    longitude:float|None=None
 
 class GuestReliefRequestCreate(BaseModel):
     disaster_id:int
@@ -17,6 +18,8 @@ class GuestReliefRequestCreate(BaseModel):
     location:str
     priority:str
     phone:str
+    latitude:float|None=None
+    longitude:float|None=None
 
 
 class AssistedReliefRequestCreate(BaseModel):
@@ -26,6 +29,8 @@ class AssistedReliefRequestCreate(BaseModel):
     description:str
     location:str
     priority:str
+    latitude:float|None=None
+    longitude:float|None=None
 
 
 class ReliefRequestStatusUpdate(BaseModel):
@@ -43,5 +48,7 @@ class ReliefRequestResponse(BaseModel):
     request_source:str
     status:str
     phone:str|None
+    latitude:float|None
+    longitude:float|None
 
     model_config=ConfigDict(from_attributes=True)

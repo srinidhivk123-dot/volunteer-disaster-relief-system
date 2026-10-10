@@ -1,4 +1,4 @@
-from sqlalchemy import Column,Integer,String,Text,ForeignKey
+from sqlalchemy import Column,Integer,String,Text,ForeignKey,Float
 from app.core.database import Base
 
 
@@ -15,3 +15,5 @@ class ReliefRequest(Base):
     request_source=Column(String(30),nullable=False,default="victim")
     status=Column(String(30),nullable=False,default="pending")
     phone=Column(String(15),nullable=True)
+    latitude=Column(Float,nullable=True)
+    longitude=Column(Float,nullable=True)

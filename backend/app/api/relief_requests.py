@@ -48,11 +48,17 @@ def create_request(
     db:Session=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    return create_relief_request(
-        db,
-        request_data,
-        current_user
-    )
+    try:
+        return create_relief_request(
+            db,
+            request_data,
+            current_user
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
 
 
 @router.post(
@@ -63,10 +69,16 @@ def create_guest_request(
     request_data:GuestReliefRequestCreate,
     db:Session=Depends(get_db)
 ):
-    return create_guest_relief_request(
-        db,
-        request_data
-    )
+    try:
+        return create_guest_relief_request(
+            db,
+            request_data
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
 
 
 @router.post(

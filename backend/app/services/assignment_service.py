@@ -33,13 +33,14 @@ def create_assignment(
         raise ValueError("Volunteer not found")
 
     existing_assignment=(
-        db.query(Assignment)
-        .filter(
-            Assignment.relief_request_id
-            ==assignment_data.relief_request_id
-        )
-        .first()
+    db.query(Assignment)
+    .filter(
+        Assignment.relief_request_id
+        ==assignment_data.relief_request_id,
+        Assignment.status!="declined"
     )
+    .first()
+)
 
     if existing_assignment is not None:
         raise ValueError("Relief request already assigned")

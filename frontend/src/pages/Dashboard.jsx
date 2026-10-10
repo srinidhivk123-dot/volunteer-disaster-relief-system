@@ -1,158 +1,208 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "../App.css";
+import Navbar from "../components/Navbar";
+import StatusBadge from "../components/StatusBadge";
+import Alert from "../components/Alert";
+import { api, getStoredUser } from "../utils/api";
 
 function Dashboard() {
   const navigate = useNavigate();
+  const user = getStoredUser();
+
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-
-    if (!token) {
+    if (!user) {
       navigate("/login", { replace: true });
+      return;
     }
-  }, [navigate]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    navigate("/login", { replace: true });
-  };
+    if (user.role === "admin") {
+      navigate("/admin-dashboard", { replace: true });
+      return;
+    }
+
+    if (user.role === "volunteer") {
+      navigate("/volunteer-dashboard", { replace: true });
+      return;
+    }
+
+    async function fetchMyRequests() {
+      try {
+        setLoading(true);
+        const data = await api.getMyRequests();
+        setRequests(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load requests:", err);
+        setErrorMsg("Unable to load your relief requests from the server.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchMyRequests();
+  }, [navigate, user]);
+
+  const pendingCount = requests.filter((r) => r.status === "pending").length;
+  const inProgressCount = requests.filter((r) => ["assigned", "in_progress"].includes(r.status)).length;
+  const completedCount = requests.filter((r) => r.status === "completed").length;
 
   return (
-    <div className="dashboard-page">
+    <div className="victim-dashboard-page">
+      <Navbar />
 
-      {/* Dashboard Navigation */}
-      <nav className="dashboard-navbar">
-        <div className="logo">
-          <span>🚨</span>
-          <h2>ReliefConnect</h2>
-        </div>
-
-        <button
-          className="logout-btn"
-          onClick={handleLogout}
-        >
-          Logout
-        </button>
-      </nav>
-
-      {/* Dashboard Content */}
-      <main className="dashboard-content">
-
-        <div className="dashboard-header">
-          <div>
-            <p className="section-label">
-              VICTIM DASHBOARD
-            </p>
-
-            <h1>Welcome to ReliefConnect</h1>
-
-            <p>
-              Request emergency assistance and track your
-              relief requests.
-            </p>
-          </div>
-        </div>
-
-        {/* Action Cards */}
-        <div className="dashboard-cards">
-
-          <div className="dashboard-card">
-            <div className="dashboard-card-icon">
-              🆘
+      <main className="dashboard-page">
+        <div className="dashboard-container">
+          <div className="dashboard-header">
+            <div>
+              <span className="rc-status-badge badge-amber" style={{ marginBottom: "8px" }}>
+                Victim Dashboard
+              </span>
+              <h1>Relief & Assistance Portal</h1>
+              <p>Request emergency relief, track assigned teams, and access safety information.</p>
             </div>
-
-            <h2>Request Help</h2>
-
-            <p>
-              Submit a request for food, water, medical
-              assistance, shelter, or other emergency needs.
-            </p>
-
             <button
+              type="button"
+              className="rc-btn rc-btn-primary rc-btn-lg"
               onClick={() => navigate("/request-help")}
             >
-              Request Help
+              🆘 Request Help Now
             </button>
           </div>
 
-          <div className="dashboard-card">
-            <div className="dashboard-card-icon">
-              📋
+          {errorMsg && <Alert type="error" message={errorMsg} onClose={() => setErrorMsg("")} />}
+
+          {/* Quick Metrics */}
+          <div className="admin-summary-grid">
+            <div className="admin-summary-card stat-teal">
+              <h3>Total Requests</h3>
+              <p className="stat-number">{loading ? "..." : requests.length}</p>
             </div>
-
-            <h2>My Requests</h2>
-
-            <p>
-              View the relief requests you have submitted
-              and check their current status.
-            </p>
-
-            <button onClick={() => navigate("/my-requests")}>
-             View Requests
-            </button>
+            <div className="admin-summary-card stat-amber">
+              <h3>Pending Review</h3>
+              <p className="stat-number">{loading ? "..." : pendingCount}</p>
+            </div>
+            <div className="admin-summary-card stat-teal">
+              <h3>In Progress / Assigned</h3>
+              <p className="stat-number">{loading ? "..." : inProgressCount}</p>
+            </div>
+            <div className="admin-summary-card stat-green">
+              <h3>Completed Assistance</h3>
+              <p className="stat-number">{loading ? "..." : completedCount}</p>
+            </div>
           </div>
 
-          <div className="dashboard-card">
-            <div className="dashboard-card-icon">
-              📢
+          {/* Action Cards */}
+          <div className="dashboard-cards">
+            <div className="dashboard-card">
+              <div className="dashboard-card-icon">🆘</div>
+              <h2>Request Help</h2>
+              <p>Submit emergency requests for food, clean water, medical assistance, rescue, or shelter.</p>
+              <button
+                type="button"
+                className="rc-btn rc-btn-primary"
+                onClick={() => navigate("/request-help")}
+              >
+                Submit Request
+              </button>
             </div>
 
-            <h2>Emergency Information</h2>
+            <div className="dashboard-card">
+              <div className="dashboard-card-icon">📋</div>
+              <h2>Track My Requests</h2>
+              <p>Check the live status of all your submitted assistance requests and volunteer updates.</p>
+              <button
+                type="button"
+                className="rc-btn rc-btn-outline-teal"
+                onClick={() => navigate("/my-requests")}
+              >
+                View Request History
+              </button>
+            </div>
 
-            <p>
-              Stay informed about active disaster events and
-              available relief services.
-            </p>
-
-            <button
-  className="secondary-dashboard-btn"
-  onClick={() => navigate("/disaster-information")}
->
-  View Information
-</button>
+            <div className="dashboard-card">
+              <div className="dashboard-card-icon">📢</div>
+              <h2>Active Disasters</h2>
+              <p>View verified disaster warnings, safe zones, and relief center locations in your region.</p>
+              <button
+                type="button"
+                className="rc-btn rc-btn-outline"
+                onClick={() => navigate("/disaster-information")}
+              >
+                View Disasters
+              </button>
+            </div>
           </div>
 
+          {/* Recent Requests Section */}
+          <section className="dashboard-card">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h2>Recent Relief Requests</h2>
+              {requests.length > 0 && (
+                <button
+                  type="button"
+                  className="rc-btn rc-btn-outline rc-btn-sm"
+                  onClick={() => navigate("/my-requests")}
+                >
+                  View All ({requests.length}) →
+                </button>
+              )}
+            </div>
+
+            {loading ? (
+              <p className="text-muted" style={{ padding: "24px 0", textAlign: "center" }}>
+                Loading your requests...
+              </p>
+            ) : requests.length === 0 ? (
+              <div className="empty-state">
+                <div className="icon">📋</div>
+                <h3>No Active Relief Requests</h3>
+                <p>You haven't submitted any assistance requests yet. If you need supplies, shelter, or rescue, submit a request now.</p>
+                <button
+                  type="button"
+                  className="rc-btn rc-btn-primary"
+                  onClick={() => navigate("/request-help")}
+                >
+                  Submit Your First Request
+                </button>
+              </div>
+            ) : (
+              <div className="rc-table-container">
+                <table className="rc-table">
+                  <thead>
+                    <tr>
+                      <th>Request ID</th>
+                      <th>Category</th>
+                      <th>Priority</th>
+                      <th>Location</th>
+                      <th>Status</th>
+                      <th>GPS Recorded</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {requests.slice(0, 5).map((req) => (
+                      <tr key={req.id}>
+                        <td><strong>#{req.id}</strong></td>
+                        <td style={{ textTransform: "capitalize" }}>{req.request_type}</td>
+                        <td>
+                          <StatusBadge status={req.priority} type="priority" />
+                        </td>
+                        <td>{req.location}</td>
+                        <td>
+                          <StatusBadge status={req.status} />
+                        </td>
+                        <td>{req.latitude != null ? "📍 Yes" : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </div>
-
-        {/* Current Status */}
-        <section className="request-status">
-
-          <h2>My Recent Requests</h2>
-
-          <div className="empty-request">
-
-            <div className="empty-icon">
-              📋
-            </div>
-
-            <h3>No requests yet</h3>
-
-            <p>
-              You haven't submitted a relief request yet.
-            </p>
-
-            <button
-              onClick={() => navigate("/request-help")}
-            >
-              Submit Your First Request
-            </button>
-
-          </div>
-
-        </section>
-
       </main>
-
-      {/* Footer */}
-      <footer>
-        <h3>ReliefConnect</h3>
-
-        <p>
-          Volunteer Disaster Relief Coordination System
-        </p>
-      </footer>
-
     </div>
   );
 }

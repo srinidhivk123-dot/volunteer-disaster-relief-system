@@ -13,7 +13,9 @@ from app.services.volunteer_service import (
     get_all_volunteers,
     update_my_volunteer_profile
 )
-
+from app.services.volunteer_matching_service import (
+    find_nearby_volunteers
+)
 
 router = APIRouter(
     prefix="/volunteers",
@@ -82,6 +84,26 @@ def get_my_profile(
         )
 
     return volunteer
+@router.get(
+    "/nearby/{relief_request_id}"
+)
+def get_nearby_volunteers(
+    relief_request_id:int,
+    db:Session=Depends(get_db),
+    current_user=Depends(require_role("admin"))
+):
+    result=find_nearby_volunteers(
+        db,
+        relief_request_id
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Relief request not found"
+        )
+
+    return result
 
 
 @router.put(

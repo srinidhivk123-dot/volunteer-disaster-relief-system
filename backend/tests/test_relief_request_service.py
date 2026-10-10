@@ -3,6 +3,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base
 from app.models.assignment import Assignment
+from app.models.disaster import Disaster
 from app.models.relief_request import ReliefRequest
 from app.models.user import User
 from app.models.volunteer import Volunteer
@@ -862,5 +863,130 @@ class TestReliefRequestService:
         )
 
         assert result is None
+
+        db.close()
+
+    def test_get_relief_request_by_id_as_assigned_volunteer(self):
+        db=get_test_db()
+
+        volunteer_user=User(
+            name="Volunteer User",
+            email="vol@test.com",
+            password_hash="hashed",
+            role="volunteer"
+        )
+        db.add(volunteer_user)
+        db.commit()
+        db.refresh(volunteer_user)
+
+        volunteer=Volunteer(
+            user_id=volunteer_user.id,
+            skills="First Aid",
+            availability="Available"
+        )
+        db.add(volunteer)
+        db.commit()
+        db.refresh(volunteer)
+
+        request=ReliefRequest(
+            victim_id=5,
+            disaster_id=1,
+            request_type="food",
+            description="Need food",
+            location="Trichy",
+            priority="HIGH",
+            request_source="victim",
+            status="assigned"
+        )
+        db.add(request)
+        db.commit()
+        db.refresh(request)
+
+        assignment=Assignment(
+            relief_request_id=request.id,
+            volunteer_id=volunteer.id,
+            status="assigned"
+        )
+        db.add(assignment)
+        db.commit()
+
+        current_user={
+            "user_id":volunteer_user.id,
+            "role":"volunteer"
+        }
+
+        result=get_relief_request_by_id(
+            db,
+            request.id,
+            current_user
+        )
+
+        assert result is not None
+        assert result.id==request.id
+
+        db.close()
+
+    def test_get_relief_request_by_id_as_admin(self):
+        db=get_test_db()
+
+        request=ReliefRequest(
+            victim_id=5,
+            disaster_id=1,
+            request_type="food",
+            description="Need food",
+            location="Trichy",
+            priority="HIGH",
+            request_source="victim",
+            status="pending"
+        )
+        db.add(request)
+        db.commit()
+        db.refresh(request)
+
+        current_user={
+            "user_id":1,
+            "role":"admin"
+        }
+
+        result=get_relief_request_by_id(
+            db,
+            request.id,
+            current_user
+        )
+
+        assert result is not None
+        assert result.id==request.id
+
+        db.close()
+
+    def test_create_guest_request_invalid_disaster(self):
+        db=get_test_db()
+
+        disaster=Disaster(
+            name="Active Flood",
+            disaster_type="Flood",
+            location="Trichy",
+            status="active"
+        )
+        db.add(disaster)
+        db.commit()
+
+        request_data=GuestReliefRequestCreate(
+            disaster_id=99999,
+            request_type="food",
+            description="Need food",
+            location="Trichy",
+            priority="HIGH",
+            phone="9876543210"
+        )
+
+        try:
+            create_guest_relief_request(
+                db,
+                request_data
+            )
+            assert False
+        except ValueError as error:
+            assert str(error)=="Selected disaster does not exist"
 
         db.close()

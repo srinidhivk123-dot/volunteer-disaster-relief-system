@@ -54,6 +54,32 @@ class TestVolunteerService:
 
         db.close()
 
+    def test_create_volunteer_profile_with_location(self):
+        db=get_test_db()
+
+        volunteer_data=VolunteerCreate(
+            skills="First Aid",
+            availability="Available",
+            latitude=10.728581,
+            longitude=78.560176
+        )
+
+        current_user={
+            "user_id":7,
+            "role":"volunteer"
+        }
+
+        result=create_volunteer_profile(
+            db,
+            volunteer_data,
+            current_user
+        )
+
+        assert result.latitude==10.728581
+        assert result.longitude==78.560176
+
+        db.close()
+
     def test_create_volunteer_profile_duplicate(self):
         db=get_test_db()
 
@@ -193,6 +219,43 @@ class TestVolunteerService:
         assert result.user_id==4
         assert result.skills=="First Aid, Rescue, Food Distribution"
         assert result.availability=="Unavailable"
+
+        db.close()
+
+    def test_update_my_volunteer_profile_with_location(self):
+        db=get_test_db()
+
+        volunteer=Volunteer(
+            user_id=4,
+            skills="First Aid",
+            availability="Available",
+            latitude=10.700000,
+            longitude=78.500000
+        )
+
+        db.add(volunteer)
+        db.commit()
+
+        volunteer_data=VolunteerCreate(
+            skills="First Aid, Rescue",
+            availability="Available",
+            latitude=10.728581,
+            longitude=78.560176
+        )
+
+        current_user={
+            "user_id":4,
+            "role":"volunteer"
+        }
+
+        result=update_my_volunteer_profile(
+            db,
+            volunteer_data,
+            current_user
+        )
+
+        assert result.latitude==10.728581
+        assert result.longitude==78.560176
 
         db.close()
 
