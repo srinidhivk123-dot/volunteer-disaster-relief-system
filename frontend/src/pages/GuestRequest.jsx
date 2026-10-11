@@ -10,10 +10,10 @@ function GuestRequest() {
   const [disasters, setDisasters] = useState([]);
   const [loadingDisasters, setLoadingDisasters] = useState(true);
   const [disasterId, setDisasterId] = useState("");
-  const [requestType, setRequestType] = useState("food");
+  const [requestType, setRequestType] = useState("rescue");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
-  const [priority, setPriority] = useState("MEDIUM");
+  const [priority, setPriority] = useState("HIGH");
   const [phone, setPhone] = useState("");
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
@@ -35,7 +35,6 @@ function GuestRequest() {
         }
       } catch (err) {
         console.error("Failed to load active disasters:", err);
-        setErrorMessage("Unable to fetch active disaster records from the server.");
       } finally {
         setLoadingDisasters(false);
       }
@@ -45,7 +44,7 @@ function GuestRequest() {
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      setLocationStatus("Geolocation is not supported by your browser.");
+      setLocationStatus("Geolocation is not supported by your browser. The emergency description below is sufficient.");
       return;
     }
 
@@ -60,11 +59,11 @@ function GuestRequest() {
       (error) => {
         console.warn("Geolocation error:", error);
         if (error.code === 1) {
-          setLocationStatus("Location access permission was denied. You can still enter your address manually.");
+          setLocationStatus("Location access permission was denied. You can still submit your emergency request with the description below.");
         } else if (error.code === 2) {
-          setLocationStatus("Location information is currently unavailable.");
+          setLocationStatus("Location information is currently unavailable. You can proceed with the emergency description below.");
         } else {
-          setLocationStatus("Timed out trying to detect GPS location.");
+          setLocationStatus("GPS detection timed out. You can proceed with the emergency description below.");
         }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -77,36 +76,45 @@ function GuestRequest() {
 
     setErrorMessage("");
 
-    if (!disasterId) {
-      setErrorMessage("Please select a valid active disaster incident.");
+    if (!description.trim()) {
+      setErrorMessage("Please provide a description of the emergency.");
       return;
     }
 
     const cleanedPhone = phone.trim();
-    if (!/^[0-9+() -]{7,15}$/.test(cleanedPhone)) {
-      setErrorMessage("Please enter a valid telephone number (7 to 15 digits).");
+    if (cleanedPhone && !/^[0-9+() -]{7,15}$/.test(cleanedPhone)) {
+      setErrorMessage("Please enter a valid telephone number (7 to 15 digits) or leave it blank.");
       return;
     }
 
     setSubmitting(true);
 
     try {
+      const derivedLocation = location.trim()
+        ? location.trim()
+        : latitude !== null && longitude !== null
+        ? `GPS Coordinates: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+        : "Emergency Location (See description)";
+
       const payload = {
-        disaster_id: Number(disasterId),
-        request_type: requestType,
+        disaster_id: disasterId ? Number(disasterId) : null,
+        request_type: requestType || "rescue",
         description: description.trim(),
-        location: location.trim(),
-        priority,
-        phone: cleanedPhone,
+        location: derivedLocation,
+        priority: priority || "HIGH",
+        phone: cleanedPhone || null,
         latitude: latitude !== null ? Number(latitude) : null,
         longitude: longitude !== null ? Number(longitude) : null,
       };
 
       const result = await api.createGuestRequest(payload);
+      if (!result || !result.id) {
+        throw new Error("Failed to obtain request reference ID from server.");
+      }
       setSuccessData(result);
     } catch (err) {
       console.error("Guest request failed:", err);
-      setErrorMessage(err.message || "Failed to submit emergency relief request.");
+      setErrorMessage(err.message || "Failed to submit emergency relief request. Please try again or call emergency services.");
     } finally {
       setSubmitting(false);
     }
@@ -133,14 +141,14 @@ function GuestRequest() {
             <span className="rc-status-badge badge-critical" style={{ marginBottom: "12px" }}>
               Public Emergency Submission
             </span>
-            <h1>Request Emergency Help</h1>
+            <h1>Emergency Help Request</h1>
             <p>
-              Submit an urgent assistance request directly to the response coordinator. No login is required.
+              Submit an immediate assistance request directly to emergency coordinators. No registration or login is required.
             </p>
           </div>
 
           <Alert type="info">
-            <strong>Important Notice:</strong> ReliefConnect is a volunteer coordination platform. Submitting a request registers your need with local relief teams, but does not guarantee immediate rescue. For critical life-threatening emergencies, also contact official local emergency hotlines.
+            <strong>Urgent Safety Notice:</strong> Submitting here notifies relief teams. For life-threatening emergencies, also attempt to contact official national emergency hotlines.
           </Alert>
 
           {errorMessage && <Alert type="error" message={errorMessage} onClose={() => setErrorMessage("")} />}
@@ -148,11 +156,12 @@ function GuestRequest() {
           {successData ? (
             <div className="empty-state" style={{ background: "#F0FDF4", borderColor: "#86EFAC" }}>
               <div className="icon">✅</div>
-              <h3 style={{ color: "#166534" }}>Relief Request Registered!</h3>
+              <h3 style={{ color: "#166534" }}>Emergency Request Recorded!</h3>
               <p style={{ color: "#14532D" }}>
-                Your request has been recorded under <strong>Request #{successData.id}</strong>. Volunteer coordinators have received your location and contact details.
+                Your request reference ID is <strong>Request #{successData.id}</strong>. Volunteer coordinators have received your notification and will prioritize assistance.
               </p>
               <div style={{ margin: "20px 0", fontSize: "14px", color: "#166534" }}>
+                <p><strong>Reference Number:</strong> #{successData.id}</p>
                 <p><strong>Category:</strong> {successData.request_type}</p>
                 <p><strong>Location:</strong> {successData.location}</p>
                 <p><strong>Status:</strong> {successData.status}</p>
@@ -163,7 +172,7 @@ function GuestRequest() {
                   className="rc-btn rc-btn-primary"
                   onClick={handleReset}
                 >
-                  Submit Another Request
+                  Submit Another Emergency Request
                 </button>
                 <button
                   type="button"
@@ -176,84 +185,27 @@ function GuestRequest() {
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
-              {loadingDisasters ? (
-                <div style={{ padding: "16px", textAlign: "center", color: "#64748B" }}>
-                  Loading active disasters...
-                </div>
-              ) : disasters.length === 0 ? (
-                <Alert type="warning">
-                  <strong>No Active Disasters Declared:</strong> There are currently no active disaster events registered in the system. All emergency requests must be associated with an active declared disaster event. If you are an administrator, please sign in to the Admin Operations Console to declare an active disaster incident. Otherwise, please check back shortly or contact local emergency services.
-                </Alert>
-              ) : (
-                <div className="rc-form-group">
-                  <label htmlFor="disaster-select">Active Disaster Event *</label>
-                  <select
-                    id="disaster-select"
-                    value={disasterId}
-                    onChange={(e) => setDisasterId(e.target.value)}
-                    required
-                  >
-                    {disasters.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name} ({d.disaster_type} - {d.location})
-                      </option>
-                    ))}
-                  </select>
-                  <small>Select the disaster incident affecting your area</small>
-                </div>
-              )}
-
-              <div className="form-row">
-                <div className="rc-form-group">
-                  <label htmlFor="request-type">Required Assistance *</label>
-                  <select
-                    id="request-type"
-                    value={requestType}
-                    onChange={(e) => setRequestType(e.target.value)}
-                    required
-                  >
-                    <option value="rescue">Rescue Operations</option>
-                    <option value="food">Food Supplies</option>
-                    <option value="water">Clean Drinking Water</option>
-                    <option value="medical">Medical Assistance</option>
-                    <option value="shelter">Emergency Shelter</option>
-                    <option value="other">Other Relief Assistance</option>
-                  </select>
-                </div>
-
-                <div className="rc-form-group">
-                  <label htmlFor="request-priority">Urgency Level *</label>
-                  <select
-                    id="request-priority"
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value)}
-                    required
-                  >
-                    <option value="HIGH">High (Urgent situation)</option>
-                    <option value="MEDIUM">Medium (Requires timely response)</option>
-                    <option value="LOW">Low (Stable, supplies needed)</option>
-                  </select>
-                </div>
-              </div>
-
+              {/* Emergency Description - Required */}
               <div className="rc-form-group">
-                <label htmlFor="request-location">Location Address / Landmark *</label>
-                <input
-                  id="request-location"
-                  type="text"
-                  placeholder="e.g. 124 Main Road, Near Central Bridge, Ward 4"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                <label htmlFor="request-desc">Description of the Emergency *</label>
+                <textarea
+                  id="request-desc"
+                  rows={4}
+                  placeholder="Describe what emergency assistance is needed, number of people affected, immediate hazards, or urgent medical needs..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                   required
+                  autoFocus
                 />
               </div>
 
+              {/* GPS Location - Optional with Button */}
               <div className="gps-field-group">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
                   <div>
-                    <strong>GPS Coordinates (Recommended)</strong>
+                    <strong>GPS Location (Optional)</strong>
                     <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748B" }}>
-                      Allows response teams to accurately navigate to your coordinates on the map.
+                      Allows response teams to accurately navigate to your exact position on the map.
                     </p>
                   </div>
                   <button
@@ -261,7 +213,7 @@ function GuestRequest() {
                     className="rc-btn rc-btn-outline-teal rc-btn-sm"
                     onClick={getCurrentLocation}
                   >
-                    📍 Capture Current GPS
+                    📍 Use My Current Location
                   </button>
                 </div>
 
@@ -276,8 +228,22 @@ function GuestRequest() {
                 )}
               </div>
 
+              {/* Location Address - Optional */}
               <div className="rc-form-group">
-                <label htmlFor="request-phone">Contact Phone Number *</label>
+                <label htmlFor="request-location">Location Address / Landmark (Optional)</label>
+                <input
+                  id="request-location"
+                  type="text"
+                  placeholder="e.g. Near Central Bridge, Main Street, Ward 4"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+                <small>If GPS is unavailable, please provide your nearest street, landmark, or town name.</small>
+              </div>
+
+              {/* Contact Phone - Optional */}
+              <div className="rc-form-group">
+                <label htmlFor="request-phone">Contact Phone Number (Optional)</label>
                 <input
                   id="request-phone"
                   type="tel"
@@ -285,21 +251,60 @@ function GuestRequest() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   maxLength={15}
-                  required
+                  autoComplete="tel"
                 />
-                <small>Volunteers will use this number to contact you or verify your location</small>
+                <small>Volunteers will use this number if they need to call you for directions.</small>
               </div>
 
-              <div className="rc-form-group">
-                <label htmlFor="request-desc">Details of Required Assistance *</label>
-                <textarea
-                  id="request-desc"
-                  rows={4}
-                  placeholder="Describe your situation, number of people needing assistance, special medical requirements, or any specific hazards..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  required
-                />
+              {/* Disaster selection - Optional, does not block */}
+              {disasters.length > 0 && (
+                <div className="rc-form-group">
+                  <label htmlFor="disaster-select">Associated Active Disaster (Optional)</label>
+                  <select
+                    id="disaster-select"
+                    value={disasterId}
+                    onChange={(e) => setDisasterId(e.target.value)}
+                  >
+                    <option value="">General Emergency (Not specific to declared event)</option>
+                    {disasters.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} ({d.disaster_type} - {d.location})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Assistance Category & Urgency */}
+              <div className="form-row">
+                <div className="rc-form-group">
+                  <label htmlFor="request-type">Type of Assistance</label>
+                  <select
+                    id="request-type"
+                    value={requestType}
+                    onChange={(e) => setRequestType(e.target.value)}
+                  >
+                    <option value="rescue">Search & Rescue Operations</option>
+                    <option value="medical">Medical Assistance / First Aid</option>
+                    <option value="food">Food Supplies</option>
+                    <option value="water">Clean Drinking Water</option>
+                    <option value="shelter">Emergency Shelter</option>
+                    <option value="other">Other Relief Assistance</option>
+                  </select>
+                </div>
+
+                <div className="rc-form-group">
+                  <label htmlFor="request-priority">Urgency Level</label>
+                  <select
+                    id="request-priority"
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value)}
+                  >
+                    <option value="HIGH">High (Urgent Emergency)</option>
+                    <option value="MEDIUM">Medium (Timely Help Needed)</option>
+                    <option value="LOW">Low (Supplies / Stable)</option>
+                  </select>
+                </div>
               </div>
 
               <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
@@ -307,9 +312,9 @@ function GuestRequest() {
                   type="submit"
                   className="rc-btn rc-btn-primary"
                   style={{ flex: 1 }}
-                  disabled={submitting || (disasters.length === 0 && !loadingDisasters)}
+                  disabled={submitting}
                 >
-                  {submitting ? "Submitting Request..." : "Submit Emergency Relief Request"}
+                  {submitting ? "Submitting Request..." : "🆘 Submit Emergency Help Request"}
                 </button>
                 <button
                   type="button"

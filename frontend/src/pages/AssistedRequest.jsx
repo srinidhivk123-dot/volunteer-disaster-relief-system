@@ -26,7 +26,7 @@ function AssistedRequest() {
 
   useEffect(() => {
     if (!user || (user.role !== "volunteer" && user.role !== "admin")) {
-      navigate("/login", { replace: true });
+      navigate("/login/volunteer", { replace: true });
       return;
     }
 
@@ -38,6 +38,8 @@ function AssistedRequest() {
         setDisasters(activeList);
         if (activeList.length > 0) {
           setDisasterId(String(activeList[0].id));
+        } else {
+          setDisasterId("");
         }
       } catch (err) {
         console.error("Failed to load active disasters:", err);
@@ -82,17 +84,12 @@ function AssistedRequest() {
       return;
     }
 
-    if (!disasterId) {
-      setErrorMessage("Please select an active disaster event.");
-      return;
-    }
-
     setSubmitting(true);
 
     try {
       const payload = {
         victim_id: Number(victimId),
-        disaster_id: Number(disasterId),
+        disaster_id: disasterId ? Number(disasterId) : null,
         request_type: requestType,
         description: description.trim(),
         location: location.trim(),
@@ -179,18 +176,18 @@ function AssistedRequest() {
                 </div>
 
                 <div className="rc-form-group">
-                  <label htmlFor="assisted-disaster">Associated Disaster *</label>
+                  <label htmlFor="assisted-disaster">Associated Disaster</label>
                   {loadingDisasters ? (
                     <select disabled><option>Loading active disasters...</option></select>
                   ) : disasters.length === 0 ? (
-                    <select disabled><option>No active disasters available</option></select>
+                    <select disabled><option value="">No active disasters available (optional)</option></select>
                   ) : (
                     <select
                       id="assisted-disaster"
                       value={disasterId}
                       onChange={(e) => setDisasterId(e.target.value)}
-                      required
                     >
+                      <option value="">-- No specific disaster / General relief --</option>
                       {disasters.map((d) => (
                         <option key={d.id} value={d.id}>
                           {d.name} ({d.disaster_type} - {d.location})
@@ -198,6 +195,7 @@ function AssistedRequest() {
                       ))}
                     </select>
                   )}
+                  <small>Optional if no active disaster is declared in the system</small>
                 </div>
               </div>
 
@@ -289,7 +287,7 @@ function AssistedRequest() {
                   type="submit"
                   className="rc-btn rc-btn-primary"
                   style={{ flex: 1 }}
-                  disabled={submitting || (disasters.length === 0 && !loadingDisasters)}
+                  disabled={submitting}
                 >
                   {submitting ? "Submitting..." : "Submit Assisted Request"}
                 </button>

@@ -34,7 +34,17 @@ function MyRequests() {
 
   useEffect(() => {
     if (!user) {
-      navigate("/login", { replace: true });
+      navigate("/login/victim", { replace: true });
+      return;
+    }
+
+    if (user.role === "admin") {
+      navigate("/admin-dashboard", { replace: true });
+      return;
+    }
+
+    if (user.role === "volunteer") {
+      navigate("/volunteer-dashboard", { replace: true });
       return;
     }
 

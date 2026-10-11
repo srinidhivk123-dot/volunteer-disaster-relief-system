@@ -7,8 +7,8 @@ class ReliefRequest(Base):
 
     id=Column(Integer,primary_key=True,index=True)
     victim_id=Column(Integer,ForeignKey("users.id"),nullable=True)
-    disaster_id=Column(Integer,ForeignKey("disasters.id"),nullable=False)
-    request_type=Column(String(100),nullable=False)
+    disaster_id=Column(Integer,ForeignKey("disasters.id"),nullable=True)
+    request_type=Column(String(100),nullable=False,default="rescue")
     description=Column(Text,nullable=False)
     location=Column(String(150),nullable=False)
     priority=Column(String(20),nullable=False,default="MEDIUM")

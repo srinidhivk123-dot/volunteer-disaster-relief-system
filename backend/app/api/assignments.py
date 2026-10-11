@@ -30,8 +30,19 @@ router = APIRouter(
 def create_new_assignment(
     assignment_data: AssignmentCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_role("admin"))
+    current_user=Depends(require_role("admin", "volunteer"))
 ):
+    if current_user["role"] == "volunteer":
+        from app.models.volunteer import Volunteer
+        volunteer = db.query(Volunteer).filter(
+            Volunteer.user_id == current_user["user_id"]
+        ).first()
+        if not volunteer or volunteer.id != assignment_data.volunteer_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Volunteers can only accept assignments for themselves"
+            )
+
     try:
         return create_assignment(
             db,

@@ -32,23 +32,31 @@ function VolunteerDashboard() {
   const [profileLng, setProfileLng] = useState(null);
 
   const [assignments, setAssignments] = useState([]);
+  const [availableRequests, setAvailableRequests] = useState([]);
+  const [disasters, setDisasters] = useState([]);
   const [requestDetails, setRequestDetails] = useState({});
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
+  const [acceptingRequestId, setAcceptingRequestId] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [gpsStatus, setGpsStatus] = useState("");
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [activeTab, setActiveTab] = useState("active"); // "active" | "history"
+  const [activeTab, setActiveTab] = useState("active"); // "active" | "available" | "history" | "disasters"
 
   const loadData = useCallback(async () => {
     if (!user) {
-      navigate("/login", { replace: true });
+      navigate("/login/volunteer", { replace: true });
       return;
     }
 
-    if (user.role !== "volunteer" && user.role !== "admin") {
+    if (user.role === "admin") {
+      navigate("/admin-dashboard", { replace: true });
+      return;
+    }
+
+    if (user.role !== "volunteer") {
       navigate("/dashboard", { replace: true });
       return;
     }
@@ -62,57 +70,80 @@ function VolunteerDashboard() {
       try {
         prof = await api.getMyVolunteerProfile();
         setProfile(prof);
-        setProfileSkills(prof.skills || "");
-        setProfileAvailability(prof.availability || "Available");
-        setProfileLat(prof.latitude);
-        setProfileLng(prof.longitude);
+        setProfileSkills(prof?.skills || "");
+        setProfileAvailability(prof?.availability || "Available");
+        setProfileLat(prof?.latitude);
+        setProfileLng(prof?.longitude);
       } catch (profErr) {
         if (profErr.status === 404) {
-          // No profile yet, allow creating one
           setProfile(null);
           setEditingProfile(true);
         } else {
-          throw profErr;
+          console.warn("Could not fetch volunteer profile:", profErr);
         }
       }
 
       // 2. Fetch Assignments
-      const assignList = await api.getAllAssignments();
-      const safeAssignments = Array.isArray(assignList) ? assignList : [];
-      setAssignments(safeAssignments);
+      let safeAssignments = [];
+      try {
+        const assignList = await api.getAllAssignments();
+        safeAssignments = Array.isArray(assignList) ? assignList : [];
+        setAssignments(safeAssignments);
+      } catch (asgnErr) {
+        console.warn("Could not fetch assignments:", asgnErr);
+      }
 
-      // 3. Load request details for all assignments
-      const detailsMap = {};
-      await Promise.all(
-        safeAssignments.map(async (asgn) => {
-          try {
-            const req = await api.getRequestById(asgn.relief_request_id);
-            if (req) {
-              let dist = null;
-              if (
-                prof?.latitude != null &&
-                prof?.longitude != null &&
-                req.latitude != null &&
-                req.longitude != null
-              ) {
-                dist = calculateDistance(
-                  prof.latitude,
-                  prof.longitude,
-                  req.latitude,
-                  req.longitude
-                );
-              }
-              detailsMap[asgn.relief_request_id] = {
-                ...req,
-                distanceKm: dist,
-              };
-            }
-          } catch (reqErr) {
-            console.warn(`Could not load details for request #${asgn.relief_request_id}:`, reqErr);
+      // 3. Fetch Active Disasters
+      try {
+        const disList = await api.getActiveDisasters();
+        setDisasters(Array.isArray(disList) ? disList : []);
+      } catch (disErr) {
+        console.warn("Could not fetch active disasters:", disErr);
+      }
+
+      // 4. Fetch All Relief Requests (for details and available unassigned requests)
+      try {
+        const allReqs = await api.getAllRequests();
+        const safeReqs = Array.isArray(allReqs) ? allReqs : [];
+
+        // Build details map for assigned tasks
+        const detailsMap = {};
+        safeReqs.forEach((req) => {
+          let dist = null;
+          if (
+            prof?.latitude != null &&
+            prof?.longitude != null &&
+            req.latitude != null &&
+            req.longitude != null
+          ) {
+            dist = calculateDistance(
+              prof.latitude,
+              prof.longitude,
+              req.latitude,
+              req.longitude
+            );
           }
-        })
-      );
-      setRequestDetails(detailsMap);
+          detailsMap[req.id] = {
+            ...req,
+            distanceKm: dist,
+          };
+        });
+        setRequestDetails(detailsMap);
+
+        // Filter unassigned pending requests
+        const assignedReqIds = new Set(
+          safeAssignments
+            .filter((a) => a.status !== "declined")
+            .map((a) => Number(a.relief_request_id))
+        );
+
+        const unassigned = safeReqs.filter(
+          (r) => r.status === "pending" && !assignedReqIds.has(Number(r.id))
+        );
+        setAvailableRequests(unassigned);
+      } catch (reqListErr) {
+        console.warn("Could not fetch relief requests:", reqListErr);
+      }
     } catch (err) {
       console.error("Error loading volunteer data:", err);
       setErrorMessage(err.message || "Failed to load volunteer records.");
@@ -122,83 +153,8 @@ function VolunteerDashboard() {
   }, [navigate, user]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function init() {
-      try {
-        let prof = null;
-        try {
-          prof = await api.getMyVolunteerProfile();
-          if (isMounted) {
-            setProfile(prof);
-            setProfileSkills(prof.skills || "");
-            setProfileAvailability(prof.availability || "Available");
-            setProfileLat(prof.latitude);
-            setProfileLng(prof.longitude);
-          }
-        } catch (profErr) {
-          if (profErr.status === 404 && isMounted) {
-            setProfile(null);
-            setEditingProfile(true);
-          } else {
-            throw profErr;
-          }
-        }
-
-        const assignList = await api.getAllAssignments();
-        const safeAssignments = Array.isArray(assignList) ? assignList : [];
-        if (isMounted) setAssignments(safeAssignments);
-
-        const detailsMap = {};
-        await Promise.all(
-          safeAssignments.map(async (asgn) => {
-            try {
-              const req = await api.getRequestById(asgn.relief_request_id);
-              if (req) {
-                let dist = null;
-                if (
-                  prof?.latitude != null &&
-                  prof?.longitude != null &&
-                  req.latitude != null &&
-                  req.longitude != null
-                ) {
-                  dist = calculateDistance(
-                    prof.latitude,
-                    prof.longitude,
-                    req.latitude,
-                    req.longitude
-                  );
-                }
-                detailsMap[asgn.relief_request_id] = {
-                  ...req,
-                  distanceKm: dist,
-                };
-              }
-            } catch (reqErr) {
-              console.warn(`Could not load details for request #${asgn.relief_request_id}:`, reqErr);
-            }
-          })
-        );
-
-        if (isMounted) {
-          setRequestDetails(detailsMap);
-          setLoading(false);
-        }
-      } catch (err) {
-        if (isMounted) {
-          console.error("Error loading volunteer data:", err);
-          setErrorMessage(err.message || "Failed to load volunteer records.");
-          setLoading(false);
-        }
-      }
-    }
-
-    init();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    loadData();
+  }, [loadData]);
 
   const handleCaptureGps = () => {
     if (!navigator.geolocation) {
@@ -228,13 +184,18 @@ function VolunteerDashboard() {
 
     try {
       const payload = {
-        skills: profileSkills.trim(),
+        skills: profileSkills.trim() || "General Disaster Relief",
         availability: profileAvailability,
         latitude: profileLat != null ? Number(profileLat) : null,
         longitude: profileLng != null ? Number(profileLng) : null,
       };
 
-      const updated = await api.updateMyVolunteerProfile(payload);
+      let updated;
+      if (profile) {
+        updated = await api.updateMyVolunteerProfile(payload);
+      } else {
+        updated = await api.createVolunteerProfile(payload);
+      }
       setProfile(updated);
       setEditingProfile(false);
       setSuccessMessage("Volunteer profile updated successfully!");
@@ -265,8 +226,31 @@ function VolunteerDashboard() {
     }
   };
 
+  const handleAcceptRequest = async (requestId) => {
+    if (!profile) {
+      setErrorMessage("Please complete your volunteer profile before accepting relief requests.");
+      return;
+    }
+
+    setAcceptingRequestId(requestId);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      await api.createAssignment(requestId, profile.id);
+      setSuccessMessage(`Relief Request #${requestId} accepted successfully! It is now listed under your Active Tasks.`);
+      setActiveTab("active");
+      await loadData();
+    } catch (err) {
+      console.error("Failed to accept request:", err);
+      setErrorMessage(err.message || "Failed to accept relief request.");
+    } finally {
+      setAcceptingRequestId(null);
+    }
+  };
+
   const activeAssignments = assignments.filter((a) =>
-    ["assigned", "in_progress"].includes(a.status?.toLowerCase())
+    ["assigned", "accepted", "in_progress"].includes(a.status?.toLowerCase())
   );
 
   const historyAssignments = assignments.filter((a) =>
@@ -285,15 +269,25 @@ function VolunteerDashboard() {
                 Field Volunteer Console
               </span>
               <h1>Volunteer Operations</h1>
-              <p>Manage your field availability, view dispatched assignments, and report status progress.</p>
+              <p>Manage your availability, view dispatched assignments, and accept open community relief requests.</p>
             </div>
-            <button
-              type="button"
-              className="rc-btn rc-btn-navy"
-              onClick={() => navigate("/assisted-request")}
-            >
-              🤝 Create Assisted Request
-            </button>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                type="button"
+                className="rc-btn rc-btn-navy"
+                onClick={() => navigate("/assisted-request")}
+              >
+                🤝 Create Assisted Request
+              </button>
+              <button
+                type="button"
+                className="rc-btn rc-btn-outline"
+                onClick={loadData}
+                disabled={loading}
+              >
+                🔄 Refresh
+              </button>
+            </div>
           </div>
 
           {errorMessage && <Alert type="error" message={errorMessage} onClose={() => setErrorMessage("")} />}
@@ -318,7 +312,7 @@ function VolunteerDashboard() {
               <form onSubmit={handleSaveProfile} style={{ marginTop: "14px" }}>
                 <div className="form-row">
                   <div className="rc-form-group">
-                    <label htmlFor="vol-skills">My Skills & Certifications</label>
+                    <label htmlFor="vol-skills">My Skills & Specialization</label>
                     <input
                       id="vol-skills"
                       type="text"
@@ -347,7 +341,7 @@ function VolunteerDashboard() {
                     <div>
                       <strong>Live Field GPS Coordinates</strong>
                       <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748B" }}>
-                        Allows dispatchers to match you with nearby victims based on distance.
+                        Allows coordinators to calculate distances to nearby victims.
                       </p>
                     </div>
                     <button
@@ -420,9 +414,9 @@ function VolunteerDashboard() {
             )}
           </section>
 
-          {/* Task Assignments Navigation Tabs */}
+          {/* Navigation Tabs */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "32px 0 16px", flexWrap: "wrap", gap: "12px" }}>
-            <div className="auth-tabs" style={{ marginBottom: "0", minWidth: "280px" }}>
+            <div className="auth-tabs" style={{ marginBottom: "0", minWidth: "300px" }}>
               <button
                 type="button"
                 className={`auth-tab-btn ${activeTab === "active" ? "active" : ""}`}
@@ -432,160 +426,343 @@ function VolunteerDashboard() {
               </button>
               <button
                 type="button"
+                className={`auth-tab-btn ${activeTab === "available" ? "active" : ""}`}
+                onClick={() => setActiveTab("available")}
+              >
+                Available Requests ({availableRequests.length})
+              </button>
+              <button
+                type="button"
+                className={`auth-tab-btn ${activeTab === "disasters" ? "active" : ""}`}
+                onClick={() => setActiveTab("disasters")}
+              >
+                Active Disasters ({disasters.length})
+              </button>
+              <button
+                type="button"
                 className={`auth-tab-btn ${activeTab === "history" ? "active" : ""}`}
                 onClick={() => setActiveTab("history")}
               >
-                Completed / History ({historyAssignments.length})
+                Task History ({historyAssignments.length})
               </button>
             </div>
-
-            <button
-              type="button"
-              className="rc-btn rc-btn-outline rc-btn-sm"
-              onClick={loadData}
-            >
-              🔄 Refresh Tasks
-            </button>
           </div>
 
-          {/* Task Cards List */}
-          {loading ? (
-            <div className="dashboard-card" style={{ textAlign: "center", padding: "48px" }}>
-              <p className="text-muted">Loading assigned relief tasks...</p>
-            </div>
-          ) : (activeTab === "active" ? activeAssignments : historyAssignments).length === 0 ? (
-            <div className="empty-state">
-              <div className="icon">{activeTab === "active" ? "🤝" : "✅"}</div>
-              <h3>
-                {activeTab === "active"
-                  ? "No Active Relief Tasks Assigned"
-                  : "No Past Task History"}
-              </h3>
-              <p>
-                {activeTab === "active"
-                  ? "When an administrator assigns a relief request to your profile, details and instructions will appear here."
-                  : "Tasks you complete or decline will be logged here for operation audits."}
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              {(activeTab === "active" ? activeAssignments : historyAssignments).map((asgn) => {
-                const req = requestDetails[asgn.relief_request_id];
-                const isAssigned = asgn.status === "assigned";
-                const isInProgress = asgn.status === "in_progress";
+          {/* Tab 1: Active Assigned Tasks */}
+          {activeTab === "active" && (
+            loading ? (
+              <div className="dashboard-card" style={{ textAlign: "center", padding: "48px" }}>
+                <p className="text-muted">Loading assigned relief tasks...</p>
+              </div>
+            ) : activeAssignments.length === 0 ? (
+              <div className="empty-state">
+                <div className="icon">🤝</div>
+                <h3>No Active Relief Tasks Assigned</h3>
+                <p>
+                  You currently have no active assigned tasks. Check the <strong>Available Requests</strong> tab above to accept an open relief request, or wait for an incident commander to dispatch you.
+                </p>
+                <button
+                  type="button"
+                  className="rc-btn rc-btn-primary"
+                  onClick={() => setActiveTab("available")}
+                  style={{ marginTop: "12px" }}
+                >
+                  Browse Available Requests ({availableRequests.length})
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {activeAssignments.map((asgn) => {
+                  const req = requestDetails[asgn.relief_request_id];
+                  const isAssigned = asgn.status === "assigned";
+                  const isAccepted = asgn.status === "accepted";
+                  const isInProgress = asgn.status === "in_progress";
 
-                return (
-                  <div key={asgn.id} className="dashboard-card" style={{ marginBottom: "0" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", borderBottom: "1px solid #E2E8F0", paddingBottom: "14px", marginBottom: "16px" }}>
-                      <div>
-                        <h2 style={{ margin: "0 0 4px 0", fontSize: "18px" }}>
-                          Assignment #{asgn.id} &mdash; Relief Request #{asgn.relief_request_id}
-                        </h2>
-                        {req && (
-                          <span className="text-muted" style={{ fontSize: "13px" }}>
-                            Category: <strong style={{ textTransform: "capitalize", color: "#17324D" }}>{req.request_type}</strong>
-                            {req.distanceKm != null && ` • Approx. ${req.distanceKm} km from you`}
-                          </span>
-                        )}
-                      </div>
-
-                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                        {req && <StatusBadge status={req.priority} type="priority" />}
-                        <StatusBadge status={asgn.status} />
-                      </div>
-                    </div>
-
-                    {req ? (
-                      <>
-                        <p style={{ margin: "0 0 16px 0", color: "#1F2937", lineHeight: "1.6" }}>
-                          <strong>Requirement:</strong> {req.description}
-                        </p>
-
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", background: "#F8FAFC", padding: "12px 16px", borderRadius: "8px", border: "1px solid #E2E8F0", marginBottom: "16px" }}>
-                          <div>
-                            <small className="text-muted" style={{ display: "block" }}>Location</small>
-                            <strong>{req.location}</strong>
-                          </div>
-                          {req.phone && (
-                            <div>
-                              <small className="text-muted" style={{ display: "block" }}>Victim Contact</small>
-                              <a href={`tel:${req.phone}`} style={{ fontWeight: "700" }}>
-                                📞 {req.phone}
-                              </a>
-                            </div>
+                  return (
+                    <div key={asgn.id} className="dashboard-card" style={{ marginBottom: "0" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", borderBottom: "1px solid #E2E8F0", paddingBottom: "14px", marginBottom: "16px" }}>
+                        <div>
+                          <h2 style={{ margin: "0 0 4px 0", fontSize: "18px" }}>
+                            Assignment #{asgn.id} &mdash; Relief Request #{asgn.relief_request_id}
+                          </h2>
+                          {req && (
+                            <span className="text-muted" style={{ fontSize: "13px" }}>
+                              Category: <strong style={{ textTransform: "capitalize", color: "#17324D" }}>{req.request_type}</strong>
+                              {req.distanceKm != null && ` • Approx. ${req.distanceKm} km from you`}
+                            </span>
                           )}
-                          <div>
-                            <small className="text-muted" style={{ display: "block" }}>Distance</small>
-                            <strong>
-                              {req.distanceKm != null
-                                ? `📍 ${req.distanceKm} km away`
-                                : "GPS coordinates unavailable"}
-                            </strong>
-                          </div>
                         </div>
 
-                        {req.latitude != null && req.longitude != null && (
-                          <div style={{ marginBottom: "16px" }}>
-                            <ReliefRequestMap
-                              latitude={req.latitude}
-                              longitude={req.longitude}
-                              requestId={req.id}
-                              location={req.location}
-                              height="220px"
-                            />
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                          {req && <StatusBadge status={req.priority} type="priority" />}
+                          <StatusBadge status={asgn.status} />
+                        </div>
+                      </div>
+
+                      {req ? (
+                        <>
+                          <p style={{ margin: "0 0 16px 0", color: "#1F2937", lineHeight: "1.6" }}>
+                            <strong>Requirement:</strong> {req.description}
+                          </p>
+
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", background: "#F8FAFC", padding: "12px 16px", borderRadius: "8px", border: "1px solid #E2E8F0", marginBottom: "16px" }}>
+                            <div>
+                              <small className="text-muted" style={{ display: "block" }}>Location</small>
+                              <strong>{req.location}</strong>
+                            </div>
+                            {req.phone && (
+                              <div>
+                                <small className="text-muted" style={{ display: "block" }}>Contact Phone</small>
+                                <a href={`tel:${req.phone}`} style={{ fontWeight: "700" }}>
+                                  📞 {req.phone}
+                                </a>
+                              </div>
+                            )}
+                            <div>
+                              <small className="text-muted" style={{ display: "block" }}>Distance</small>
+                              <strong>
+                                {req.distanceKm != null
+                                  ? `📍 ${req.distanceKm} km away`
+                                  : "GPS coordinates unavailable"}
+                              </strong>
+                            </div>
+                          </div>
+
+                          {req.latitude != null && req.longitude != null && (
+                            <div style={{ marginBottom: "16px" }}>
+                              <ReliefRequestMap
+                                latitude={req.latitude}
+                                longitude={req.longitude}
+                                requestId={req.id}
+                                location={req.location}
+                                height="220px"
+                              />
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-muted" style={{ marginBottom: "16px" }}>
+                          Relief request #{asgn.relief_request_id} details loading.
+                        </p>
+                      )}
+
+                      {/* Volunteer Status Actions */}
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", borderTop: "1px solid #E2E8F0", paddingTop: "14px", flexWrap: "wrap" }}>
+                        {isAssigned && (
+                          <>
+                            <button
+                              type="button"
+                              className="rc-btn rc-btn-teal rc-btn-sm"
+                              onClick={() => handleUpdateAssignmentStatus(asgn.id, "accepted")}
+                              disabled={updatingId === asgn.id}
+                            >
+                              {updatingId === asgn.id ? "Updating..." : "👍 Accept Task"}
+                            </button>
+                            <button
+                              type="button"
+                              className="rc-btn rc-btn-primary rc-btn-sm"
+                              onClick={() => handleUpdateAssignmentStatus(asgn.id, "in_progress")}
+                              disabled={updatingId === asgn.id}
+                            >
+                              {updatingId === asgn.id ? "Updating..." : "▶️ Start Response"}
+                            </button>
+                            <button
+                              type="button"
+                              className="rc-btn rc-btn-danger rc-btn-sm"
+                              onClick={() => handleUpdateAssignmentStatus(asgn.id, "declined")}
+                              disabled={updatingId === asgn.id}
+                            >
+                              {updatingId === asgn.id ? "Updating..." : "✕ Decline"}
+                            </button>
+                          </>
+                        )}
+
+                        {isAccepted && (
+                          <>
+                            <button
+                              type="button"
+                              className="rc-btn rc-btn-primary rc-btn-sm"
+                              onClick={() => handleUpdateAssignmentStatus(asgn.id, "in_progress")}
+                              disabled={updatingId === asgn.id}
+                            >
+                              {updatingId === asgn.id ? "Updating..." : "▶️ Start Response (In Progress)"}
+                            </button>
+                            <button
+                              type="button"
+                              className="rc-btn rc-btn-navy rc-btn-sm"
+                              onClick={() => handleUpdateAssignmentStatus(asgn.id, "completed")}
+                              disabled={updatingId === asgn.id}
+                            >
+                              {updatingId === asgn.id ? "Updating..." : "🏁 Mark Completed"}
+                            </button>
+                          </>
+                        )}
+
+                        {isInProgress && (
+                          <button
+                            type="button"
+                            className="rc-btn rc-btn-navy rc-btn-sm"
+                            onClick={() => handleUpdateAssignmentStatus(asgn.id, "completed")}
+                            disabled={updatingId === asgn.id}
+                          >
+                            {updatingId === asgn.id ? "Updating..." : "🏁 Mark Completed"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          )}
+
+          {/* Tab 2: Available Open Requests to Accept */}
+          {activeTab === "available" && (
+            loading ? (
+              <div className="dashboard-card" style={{ textAlign: "center", padding: "48px" }}>
+                <p className="text-muted">Loading available requests...</p>
+              </div>
+            ) : availableRequests.length === 0 ? (
+              <div className="empty-state">
+                <div className="icon">✅</div>
+                <h3>No Open Relief Requests Pending Assignment</h3>
+                <p>
+                  All current relief requests have already been assigned to volunteer responders. Check back shortly for new requests.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {availableRequests.map((req) => {
+                  let dist = null;
+                  if (
+                    profile?.latitude != null &&
+                    profile?.longitude != null &&
+                    req.latitude != null &&
+                    req.longitude != null
+                  ) {
+                    dist = calculateDistance(
+                      profile.latitude,
+                      profile.longitude,
+                      req.latitude,
+                      req.longitude
+                    );
+                  }
+
+                  return (
+                    <div key={req.id} className="dashboard-card" style={{ marginBottom: "0" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", borderBottom: "1px solid #E2E8F0", paddingBottom: "14px", marginBottom: "16px" }}>
+                        <div>
+                          <h2 style={{ margin: "0 0 4px 0", fontSize: "18px" }}>
+                            Request #{req.id} &mdash; <span style={{ textTransform: "capitalize" }}>{req.request_type}</span>
+                          </h2>
+                          <span className="text-muted" style={{ fontSize: "13px" }}>
+                            Source: <strong style={{ textTransform: "capitalize" }}>{req.request_source || "Victim"}</strong>
+                            {dist != null && ` • Approx. ${dist} km from you`}
+                          </span>
+                        </div>
+
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                          <StatusBadge status={req.priority} type="priority" />
+                          <StatusBadge status={req.status} />
+                        </div>
+                      </div>
+
+                      <p style={{ margin: "0 0 16px 0", color: "#1F2937", lineHeight: "1.6" }}>
+                        <strong>Description:</strong> {req.description}
+                      </p>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", background: "#F8FAFC", padding: "12px 16px", borderRadius: "8px", border: "1px solid #E2E8F0", marginBottom: "16px" }}>
+                        <div>
+                          <small className="text-muted" style={{ display: "block" }}>Location</small>
+                          <strong>{req.location}</strong>
+                        </div>
+                        {req.phone && (
+                          <div>
+                            <small className="text-muted" style={{ display: "block" }}>Contact Phone</small>
+                            <a href={`tel:${req.phone}`} style={{ fontWeight: "700" }}>
+                              📞 {req.phone}
+                            </a>
                           </div>
                         )}
-                      </>
-                    ) : (
-                      <p className="text-muted" style={{ marginBottom: "16px" }}>
-                        Relief request #{asgn.relief_request_id} details loading or archived.
-                      </p>
-                    )}
+                        <div>
+                          <small className="text-muted" style={{ display: "block" }}>Distance</small>
+                          <strong>{dist != null ? `📍 ${dist} km away` : "GPS coordinates unavailable"}</strong>
+                        </div>
+                      </div>
 
-                    {/* Volunteer Status Actions */}
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", borderTop: "1px solid #E2E8F0", paddingTop: "14px" }}>
-                      {isAssigned && (
-                        <>
-                          <button
-                            type="button"
-                            className="rc-btn rc-btn-primary rc-btn-sm"
-                            onClick={() => handleUpdateAssignmentStatus(asgn.id, "in_progress")}
-                            disabled={updatingId === asgn.id}
-                          >
-                            {updatingId === asgn.id ? "Updating..." : "✅ Accept & Start Task"}
-                          </button>
-                          <button
-                            type="button"
-                            className="rc-btn rc-btn-danger rc-btn-sm"
-                            onClick={() => handleUpdateAssignmentStatus(asgn.id, "declined")}
-                            disabled={updatingId === asgn.id}
-                          >
-                            {updatingId === asgn.id ? "Updating..." : "✕ Decline Task"}
-                          </button>
-                        </>
-                      )}
-
-                      {isInProgress && (
+                      <div style={{ display: "flex", justifyContent: "flex-end", borderTop: "1px solid #E2E8F0", paddingTop: "14px" }}>
                         <button
                           type="button"
-                          className="rc-btn rc-btn-navy rc-btn-sm"
-                          onClick={() => handleUpdateAssignmentStatus(asgn.id, "completed")}
-                          disabled={updatingId === asgn.id}
+                          className="rc-btn rc-btn-primary rc-btn-sm"
+                          onClick={() => handleAcceptRequest(req.id)}
+                          disabled={acceptingRequestId === req.id}
                         >
-                          {updatingId === asgn.id ? "Updating..." : "🏁 Mark Task Completed"}
+                          {acceptingRequestId === req.id ? "Accepting..." : "🤝 Accept This Request"}
                         </button>
-                      )}
-
-                      {!isAssigned && !isInProgress && (
-                        <span className="text-muted" style={{ fontSize: "13px", alignSelf: "center" }}>
-                          Status: {asgn.status} &bull; No pending actions
-                        </span>
-                      )}
+                      </div>
                     </div>
+                  );
+                })}
+              </div>
+            )
+          )}
+
+          {/* Tab 3: Active Disasters View */}
+          {activeTab === "disasters" && (
+            disasters.length === 0 ? (
+              <div className="empty-state">
+                <div className="icon">🛡️</div>
+                <h3>No Active Disaster Emergencies Declared</h3>
+                <p>There are currently no active disaster alerts declared in the coordination system.</p>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px" }}>
+                {disasters.map((d) => (
+                  <div key={d.id} className="dashboard-card" style={{ marginBottom: "0" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                      <span className="rc-status-badge badge-teal">Incident #{d.id}</span>
+                      <StatusBadge status={d.status} />
+                    </div>
+                    <h3 style={{ margin: "4px 0", fontSize: "18px" }}>{d.name}</h3>
+                    <div style={{ fontSize: "13px", color: "#475569", marginBottom: "8px" }}>
+                      <strong>Category:</strong> <span style={{ textTransform: "capitalize" }}>{d.disaster_type}</span> &bull; <strong>Area:</strong> {d.location}
+                    </div>
+                    <p style={{ fontSize: "13px", color: "#64748B", margin: "0" }}>
+                      {d.description || "Active relief operations cataloged."}
+                    </p>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )
+          )}
+
+          {/* Tab 4: Completed / History Tasks */}
+          {activeTab === "history" && (
+            historyAssignments.length === 0 ? (
+              <div className="empty-state">
+                <div className="icon">📋</div>
+                <h3>No Past Task History</h3>
+                <p>Tasks you complete will be cataloged here for operations audit and tracking.</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {historyAssignments.map((asgn) => {
+                  const req = requestDetails[asgn.relief_request_id];
+                  return (
+                    <div key={asgn.id} className="dashboard-card" style={{ marginBottom: "0" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                        <div>
+                          <strong>Assignment #{asgn.id}</strong> &mdash; Request #{asgn.relief_request_id}
+                          {req && ` (${req.request_type} - ${req.location})`}
+                        </div>
+                        <StatusBadge status={asgn.status} />
+                      </div>
+                      {req && <p style={{ margin: "0", fontSize: "14px", color: "#64748B" }}>{req.description}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            )
           )}
         </div>
       </main>

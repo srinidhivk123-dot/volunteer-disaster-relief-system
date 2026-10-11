@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.disaster import Disaster
@@ -54,7 +55,7 @@ def get_active_disasters(
     return (
         db.query(Disaster)
         .filter(
-            Disaster.status.in_(["active", "ACTIVE"])
+            func.lower(Disaster.status) == "active"
         )
         .order_by(Disaster.id.desc())
         .all()

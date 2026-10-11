@@ -5,11 +5,14 @@ Usage:
     (prompts for password securely)
 Or:
     python -m scripts.create_admin --email admin@domain.com --name "Command Officer" --password "YourSecurePassword@123"
+    python -m scripts.create_admin --email admin@domain.com --db-url "mysql+pymysql://..."
 """
 import argparse
 import getpass
 import sys
 import logging
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
 from app.core.database import SessionLocal
 from app.core.security import hash_password
 from app.models.user import User
@@ -29,11 +32,12 @@ def validate_password_strength(password: str):
         raise ValueError("Password must contain at least one digit")
 
 
-def create_or_promote_admin(email: str, name: str, password: str | None = None):
+def create_or_promote_admin(email: str, name: str, password: str | None = None, session_factory=None):
     clean_email = email.strip().lower()
     clean_name = name.strip()
+    session_factory = session_factory or SessionLocal
 
-    with SessionLocal() as db:
+    with session_factory() as db:
         user = db.query(User).filter(User.email == clean_email).first()
 
         if user:
@@ -70,19 +74,31 @@ def main():
     parser.add_argument("--email", required=True, help="Administrator email address")
     parser.add_argument("--name", default="System Administrator", help="Administrator full name")
     parser.add_argument("--password", help="Administrator password (prompted if omitted)")
+    parser.add_argument("--db-url", help="Optional database URL override (e.g. Aiven MySQL)")
 
     args = parser.parse_args()
 
+    session_factory = SessionLocal
+    if args.db_url:
+        connect_args = {"ssl": {"check_hostname": False}} if ("mysql" in args.db_url) else {}
+        custom_engine = create_engine(args.db_url, connect_args=connect_args)
+        session_factory = sessionmaker(autocommit=False, autoflush=False, bind=custom_engine)
+
     pwd = args.password
+    # Only prompt for password if creating a new user or explicitly resetting
     if not pwd:
-        pwd = getpass.getpass("Enter administrator password: ")
-        confirm_pwd = getpass.getpass("Confirm administrator password: ")
-        if pwd != confirm_pwd:
-            logger.error("Passwords do not match.")
-            return 1
+        # Check if user already exists
+        with session_factory() as db:
+            existing = db.query(User).filter(User.email == args.email.strip().lower()).first()
+        if not existing:
+            pwd = getpass.getpass("Enter administrator password: ")
+            confirm_pwd = getpass.getpass("Confirm administrator password: ")
+            if pwd != confirm_pwd:
+                logger.error("Passwords do not match.")
+                return 1
 
     try:
-        return create_or_promote_admin(email=args.email, name=args.name, password=pwd)
+        return create_or_promote_admin(email=args.email, name=args.name, password=pwd, session_factory=session_factory)
     except Exception as e:
         logger.error("Failed to provision administrator: %s", e)
         return 1

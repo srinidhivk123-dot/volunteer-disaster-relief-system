@@ -17,7 +17,9 @@ from app.schemas.relief_request import (
 logger=logging.getLogger(__name__)
 
 
-def _validate_active_disaster(db: Session, disaster_id: int) -> Disaster:
+def _validate_active_disaster(db: Session, disaster_id: int | None) -> Disaster | None:
+    if disaster_id is None:
+        return None
     disaster = db.query(Disaster).filter(
         Disaster.id == disaster_id
     ).first()
@@ -34,11 +36,11 @@ def create_relief_request(db, request_data, current_user):
     new_request = ReliefRequest(
         victim_id=current_user["user_id"],
         disaster_id=request_data.disaster_id,
-        request_type=request_data.request_type,
+        request_type=request_data.request_type or "rescue",
         description=request_data.description,
-        location=request_data.location,
-        priority=request_data.priority,
-        request_source=request_data.request_source,
+        location=request_data.location or "Not specified",
+        priority=request_data.priority or "MEDIUM",
+        request_source=request_data.request_source or "victim",
         latitude=request_data.latitude,
         longitude=request_data.longitude
     )
@@ -77,10 +79,10 @@ def create_assisted_relief_request(db, request_data):
     new_request = ReliefRequest(
         victim_id=request_data.victim_id,
         disaster_id=request_data.disaster_id,
-        request_type=request_data.request_type,
+        request_type=request_data.request_type or "rescue",
         description=request_data.description,
-        location=request_data.location,
-        priority=request_data.priority,
+        location=request_data.location or "Not specified",
+        priority=request_data.priority or "HIGH",
         request_source="assisted",
         latitude=request_data.latitude,
         longitude=request_data.longitude
@@ -110,10 +112,10 @@ def create_guest_relief_request(db, request_data):
     new_request = ReliefRequest(
         victim_id=None,
         disaster_id=request_data.disaster_id,
-        request_type=request_data.request_type,
+        request_type=request_data.request_type or "rescue",
         description=request_data.description,
-        location=request_data.location,
-        priority=request_data.priority,
+        location=request_data.location or "Not specified",
+        priority=request_data.priority or "HIGH",
         request_source="guest",
         phone=request_data.phone,
         latitude=request_data.latitude,
@@ -172,6 +174,12 @@ def get_relief_request_by_id(db,request_id,current_user):
                 return db.query(ReliefRequest).filter(
                     ReliefRequest.id==request_id
                 ).first()
+        # Allow volunteer to view pending/available requests
+        req = db.query(ReliefRequest).filter(
+            ReliefRequest.id==request_id
+        ).first()
+        if req and req.status == "pending":
+            return req
         return None
 
     return db.query(ReliefRequest).filter(
@@ -200,6 +208,7 @@ def update_relief_request_status(
     allowed_statuses={
         "pending",
         "assigned",
+        "accepted",
         "in_progress",
         "completed",
         "cancelled"
@@ -224,6 +233,7 @@ def update_relief_request_status(
 
     elif role=="volunteer":
         if new_status not in {
+            "accepted",
             "in_progress",
             "completed"
         }:
@@ -256,10 +266,17 @@ def update_relief_request_status(
     allowed_transitions={
         "pending":{
             "assigned",
+            "accepted",
             "cancelled"
         },
         "assigned":{
+            "accepted",
             "in_progress",
+            "cancelled"
+        },
+        "accepted":{
+            "in_progress",
+            "completed",
             "cancelled"
         },
         "in_progress":{

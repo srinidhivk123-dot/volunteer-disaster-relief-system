@@ -1,4 +1,9 @@
-const RAW_API_URL = import.meta.env.VITE_API_URL || "https://volunteer-disaster-relief-system-awao.onrender.com";
+const RAW_API_URL =
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+    ? "http://localhost:8000"
+    : "https://volunteer-disaster-relief-system-awao.onrender.com");
 export const API_URL = RAW_API_URL.replace(/\/+$/, "");
 
 export function getAuthToken() {
@@ -116,15 +121,8 @@ export async function request(path, options = {}) {
 export const api = {
   // Auth
   login: async (email, password, role = null) => {
-    try {
-      const endpoint = role ? `/auth/login/${role}` : "/auth/login";
-      return await request(endpoint, { method: "POST", body: { email, password } });
-    } catch (err) {
-      if (err.status === 404 && role) {
-        return await request("/auth/login", { method: "POST", body: { email, password } });
-      }
-      throw err;
-    }
+    const endpoint = role ? `/auth/login/${role}` : "/auth/login";
+    return await request(endpoint, { method: "POST", body: { email, password } });
   },
   loginVictim: (email, password) => api.login(email, password, "victim"),
   loginVolunteer: (email, password) => api.login(email, password, "volunteer"),

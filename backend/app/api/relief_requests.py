@@ -76,7 +76,7 @@ def create_guest_request(
 def create_assisted_request(
     request_data:AssistedReliefRequestCreate,
     db:Session=Depends(get_db),
-    current_user=Depends(require_role("volunteer"))
+    current_user=Depends(require_role("volunteer", "admin"))
 ):
     try:
         return create_assisted_relief_request(
@@ -110,7 +110,7 @@ def get_my_requests(
 )
 def get_all_requests(
     db:Session=Depends(get_db),
-    current_user=Depends(require_role("admin"))
+    current_user=Depends(require_role("admin", "volunteer"))
 ):
     return get_all_relief_requests(db)
 

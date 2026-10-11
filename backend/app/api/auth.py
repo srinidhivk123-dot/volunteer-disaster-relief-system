@@ -80,10 +80,27 @@ def perform_login(user_creds: LoginRequest, db: Session, required_role: str | No
 
     # Enforce role-specific portal login if requested
     if required_role and existing_user.role.lower() != required_role.lower():
+        article_exist = "an" if existing_user.role.lower().startswith(("a", "e", "i", "o", "u")) else "a"
+        plural_req = f"{required_role.capitalize()}s"
         raise HTTPException(
             status_code=403,
-            detail=f"Access denied: This account is registered as a {existing_user.role.capitalize()}, not an {required_role.capitalize()}. Please sign in through the {existing_user.role.capitalize()} login portal."
+            detail=f"Access denied: This portal is for {plural_req} only. Your account is registered as {article_exist} {existing_user.role.capitalize()}."
         )
+
+    # Ensure volunteer profile exists for volunteer accounts
+    if existing_user.role.lower() == "volunteer":
+        from app.models.volunteer import Volunteer
+        existing_vol = db.query(Volunteer).filter(Volunteer.user_id == existing_user.id).first()
+        if not existing_vol:
+            new_vol = Volunteer(
+                user_id=existing_user.id,
+                skills="General Disaster Relief",
+                availability="Available",
+                latitude=None,
+                longitude=None
+            )
+            db.add(new_vol)
+            db.commit()
 
 
     token = create_access_token({
@@ -96,6 +113,7 @@ def perform_login(user_creds: LoginRequest, db: Session, required_role: str | No
         "access_token": token,
         "token_type": "bearer",
         "role": existing_user.role,
+        "user_role": existing_user.role,
         "user_id": existing_user.id,
         "name": existing_user.name
     }

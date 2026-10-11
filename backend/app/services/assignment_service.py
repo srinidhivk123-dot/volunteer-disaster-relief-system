@@ -82,7 +82,7 @@ def get_assignment_by_id(
         )
 
         if volunteer is None:
-            raise ValueError("Volunteer profile not found")
+            return None
 
         query=query.filter(
             Assignment.volunteer_id==volunteer.id
@@ -107,7 +107,7 @@ def get_all_assignments(
         )
 
         if volunteer is None:
-            raise ValueError("Volunteer profile not found")
+            return []
 
         query=query.filter(
             Assignment.volunteer_id==volunteer.id
@@ -160,7 +160,13 @@ def update_assignment_status(
 
         allowed_transitions={
             "assigned":{
+                "accepted",
                 "in_progress",
+                "declined"
+            },
+            "accepted":{
+                "in_progress",
+                "completed",
                 "declined"
             },
             "in_progress":{
@@ -179,6 +185,7 @@ def update_assignment_status(
     elif role=="admin":
         allowed_statuses={
             "assigned",
+            "accepted",
             "in_progress",
             "completed",
             "declined"

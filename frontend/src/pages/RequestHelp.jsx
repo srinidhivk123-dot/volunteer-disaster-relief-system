@@ -1,20 +1,21 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Alert from "../components/Alert";
 import { api, getStoredUser } from "../utils/api";
 
 function RequestHelp() {
   const navigate = useNavigate();
+  const navLocation = useLocation();
   const user = getStoredUser();
 
   const [disasters, setDisasters] = useState([]);
   const [loadingDisasters, setLoadingDisasters] = useState(true);
-  const [disasterId, setDisasterId] = useState("");
-  const [requestType, setRequestType] = useState("food");
+  const [disasterId, setDisasterId] = useState(navLocation.state?.preselectedDisasterId ? String(navLocation.state.preselectedDisasterId) : "");
+  const [requestType, setRequestType] = useState("rescue");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
-  const [priority, setPriority] = useState("MEDIUM");
+  const [priority, setPriority] = useState("HIGH");
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
 
@@ -25,7 +26,17 @@ function RequestHelp() {
 
   useEffect(() => {
     if (!user) {
-      navigate("/login", { replace: true });
+      navigate("/login/victim", { replace: true });
+      return;
+    }
+
+    if (user.role === "admin") {
+      navigate("/admin-dashboard", { replace: true });
+      return;
+    }
+
+    if (user.role === "volunteer") {
+      navigate("/volunteer-dashboard", { replace: true });
       return;
     }
 
@@ -35,22 +46,21 @@ function RequestHelp() {
         const data = await api.getActiveDisasters();
         const activeList = Array.isArray(data) ? data : [];
         setDisasters(activeList);
-        if (activeList.length > 0) {
+        if (!disasterId && activeList.length > 0) {
           setDisasterId(String(activeList[0].id));
         }
       } catch (err) {
         console.error("Failed to load active disasters:", err);
-        setErrorMessage("Unable to fetch active disaster records from the server.");
       } finally {
         setLoadingDisasters(false);
       }
     }
     fetchDisasters();
-  }, [navigate, user]);
+  }, [navigate, user, disasterId]);
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      setLocationStatus("Geolocation is not supported by your browser.");
+      setLocationStatus("Geolocation is not supported by your browser. Please enter your location manually.");
       return;
     }
 
@@ -65,11 +75,11 @@ function RequestHelp() {
       (error) => {
         console.warn("Geolocation error:", error);
         if (error.code === 1) {
-          setLocationStatus("Location access permission was denied. Enter your location manually.");
+          setLocationStatus("Location access permission was denied. You can enter your location manually below.");
         } else if (error.code === 2) {
           setLocationStatus("Location information is currently unavailable.");
         } else {
-          setLocationStatus("Unable to determine current GPS location.");
+          setLocationStatus("Timed out trying to detect GPS location.");
         }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -82,19 +92,25 @@ function RequestHelp() {
 
     setErrorMessage("");
 
-    if (!disasterId) {
-      setErrorMessage("Please select an active disaster incident.");
+    if (!description.trim()) {
+      setErrorMessage("Please describe the assistance you need.");
       return;
     }
 
     setSubmitting(true);
 
     try {
+      const derivedLocation = location.trim()
+        ? location.trim()
+        : latitude !== null && longitude !== null
+        ? `GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+        : "Location not specified";
+
       const payload = {
-        disaster_id: Number(disasterId),
+        disaster_id: disasterId ? Number(disasterId) : null,
         request_type: requestType,
         description: description.trim(),
-        location: location.trim(),
+        location: derivedLocation,
         priority,
         request_source: "victim",
         latitude: latitude !== null ? Number(latitude) : null,
@@ -119,11 +135,11 @@ function RequestHelp() {
         <div className="request-card">
           <div className="request-header">
             <span className="rc-status-badge badge-teal" style={{ marginBottom: "12px" }}>
-              Registered Victim Portal
+              Registered Relief Recipient
             </span>
             <h1>Submit Relief Request</h1>
             <p>
-              Submit your required emergency supplies or assistance details. Response teams will prioritize your request based on urgency and location.
+              Submit your needed emergency supplies or rescue details. Coordination officers will prioritize response teams based on urgency and location.
             </p>
           </div>
 
@@ -132,10 +148,16 @@ function RequestHelp() {
           {successData ? (
             <div className="empty-state" style={{ background: "#F0FDF4", borderColor: "#86EFAC" }}>
               <div className="icon">✅</div>
-              <h3 style={{ color: "#166534" }}>Request Submitted Successfully!</h3>
+              <h3 style={{ color: "#166534" }}>Relief Request Registered!</h3>
               <p style={{ color: "#14532D" }}>
-                Your relief request is registered under <strong>Request #{successData.id}</strong>. You can monitor volunteer assignment status on your dashboard.
+                Your relief request has been recorded under <strong>Request #{successData.id}</strong>. You can track progress and volunteer updates on your dashboard.
               </p>
+              <div style={{ margin: "20px 0", fontSize: "14px", color: "#166534" }}>
+                <p><strong>Reference Number:</strong> #{successData.id}</p>
+                <p><strong>Category:</strong> {successData.request_type}</p>
+                <p><strong>Location:</strong> {successData.location}</p>
+                <p><strong>Status:</strong> {successData.status}</p>
+              </div>
               <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginTop: "20px" }}>
                 <button
                   type="button"
@@ -162,23 +184,24 @@ function RequestHelp() {
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
+              {/* Active Disaster Selection */}
               {loadingDisasters ? (
-                <div style={{ padding: "16px", textAlign: "center", color: "#64748B" }}>
-                  Loading active disasters...
+                <div style={{ padding: "12px", textAlign: "center", color: "#64748B" }}>
+                  Loading active disaster information...
                 </div>
               ) : disasters.length === 0 ? (
-                <Alert type="warning">
-                  <strong>No Active Disasters Declared:</strong> There are currently no active disaster events registered in the system. All relief requests must be associated with an active declared disaster event. An administrator must declare an active disaster incident before requests can be created. Please check back shortly.
+                <Alert type="info">
+                  <strong>No Active Disasters Cataloged:</strong> There are currently no active disaster declarations registered in the system. You may still submit your emergency relief request directly, and response teams will assist you.
                 </Alert>
               ) : (
                 <div className="rc-form-group">
-                  <label htmlFor="disaster-select">Associated Active Disaster *</label>
+                  <label htmlFor="disaster-select">Associated Active Disaster</label>
                   <select
                     id="disaster-select"
                     value={disasterId}
                     onChange={(e) => setDisasterId(e.target.value)}
-                    required
                   >
+                    <option value="">General Emergency (No specific incident)</option>
                     {disasters.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name} ({d.disaster_type} - {d.location})
@@ -188,6 +211,7 @@ function RequestHelp() {
                 </div>
               )}
 
+              {/* Assistance Category & Urgency */}
               <div className="form-row">
                 <div className="rc-form-group">
                   <label htmlFor="req-type">Required Category *</label>
@@ -197,12 +221,12 @@ function RequestHelp() {
                     onChange={(e) => setRequestType(e.target.value)}
                     required
                   >
-                    <option value="rescue">Rescue Operations</option>
+                    <option value="rescue">Search & Rescue Operations</option>
+                    <option value="medical">Medical Assistance & Supplies</option>
                     <option value="food">Food Supplies</option>
-                    <option value="water">Clean Water</option>
-                    <option value="medical">Medical Assistance</option>
+                    <option value="water">Clean Drinking Water</option>
                     <option value="shelter">Emergency Shelter</option>
-                    <option value="other">Other Assistance</option>
+                    <option value="other">Other Relief Assistance</option>
                   </select>
                 </div>
 
@@ -214,29 +238,45 @@ function RequestHelp() {
                     onChange={(e) => setPriority(e.target.value)}
                     required
                   >
-                    <option value="HIGH">High (Urgent emergency)</option>
-                    <option value="MEDIUM">Medium (Within 24 hours)</option>
-                    <option value="LOW">Low (Stable, basic needs)</option>
+                    <option value="HIGH">High (Urgent Emergency)</option>
+                    <option value="MEDIUM">Medium (Within 24 Hours)</option>
+                    <option value="LOW">Low (Basic Needs / Stable)</option>
                   </select>
                 </div>
               </div>
 
+              {/* Description of help needed - Required */}
               <div className="rc-form-group">
-                <label htmlFor="req-location">Current Location Address *</label>
-                <input
-                  id="req-location"
-                  type="text"
-                  placeholder="Enter detailed street, landmark, or village name"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                <label htmlFor="req-description">Description of Assistance Needed *</label>
+                <textarea
+                  id="req-description"
+                  rows={4}
+                  placeholder="Describe your situation, number of people needing assistance, special medical requirements, or specific hazards..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                   required
+                  autoFocus
                 />
               </div>
 
+              {/* Location Address */}
+              <div className="rc-form-group">
+                <label htmlFor="req-location">Current Location Address / Landmark</label>
+                <input
+                  id="req-location"
+                  type="text"
+                  placeholder="Enter street name, landmark, camp number, or village name"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+                <small>Helps volunteers navigate directly to your location.</small>
+              </div>
+
+              {/* Optional GPS Location Capture */}
               <div className="gps-field-group">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
                   <div>
-                    <strong>GPS Coordinates</strong>
+                    <strong>GPS Coordinates (Optional)</strong>
                     <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748B" }}>
                       Helps field volunteers locate you directly on the coordination map.
                     </p>
@@ -246,7 +286,7 @@ function RequestHelp() {
                     className="rc-btn rc-btn-outline-teal rc-btn-sm"
                     onClick={getCurrentLocation}
                   >
-                    📍 Capture Current GPS
+                    📍 Use My Current Location
                   </button>
                 </div>
 
@@ -259,24 +299,12 @@ function RequestHelp() {
                 )}
               </div>
 
-              <div className="rc-form-group">
-                <label htmlFor="req-description">Description of Assistance Needed *</label>
-                <textarea
-                  id="req-description"
-                  rows={4}
-                  placeholder="State the number of family members, specific medicine required, water shortage details, or accessibility constraints..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  required
-                />
-              </div>
-
               <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
                 <button
                   type="submit"
                   className="rc-btn rc-btn-primary"
                   style={{ flex: 1 }}
-                  disabled={submitting || (disasters.length === 0 && !loadingDisasters)}
+                  disabled={submitting}
                 >
                   {submitting ? "Submitting..." : "Submit Relief Request"}
                 </button>
